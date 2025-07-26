@@ -1,16 +1,24 @@
 // src/pages/Sidenav.jsx
 
 import React, { useState } from 'react';
+import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { IoHomeOutline,IoSettingsOutline } from "react-icons/io5";
 import { CgProfile } from "react-icons/cg";
 import { FiMessageSquare } from "react-icons/fi";
 import { IoIosNotificationsOutline } from "react-icons/io";
 import { MdOutlineExplore } from "react-icons/md";
+import Home from './home';
+import Profile from './Profile';
+import Explore from './Explore';
+import Messages from './Message';
+import Notifications from './Notification';
+import Settings from './Settings';
 
 function Sidenav() {
   const navigate = useNavigate();
   const [active, setActive] = useState('Home');
+    const { user } = useUser();
 
   const navItems = [
     { name: 'Home', icon: <IoHomeOutline /> },
@@ -27,9 +35,9 @@ function Sidenav() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <aside className="w-64 bg-white p-6 shadow-lg flex flex-col">
-    <div className='text-4xl text-sky-800 font-bitcount flex items-center  mb-10'>connect</div>
+    <div className="flex min-h-screen bg-gray-800">
+      <aside className="w-64 bg-gray-700 p-6 shadow-lg flex flex-col">
+    <div className='text-4xl text-white font-bitcount flex items-center  mb-10'>connect</div>
         <nav className="flex-1">
           <ul className="space-y-3">
             {navItems.map((item) => (
@@ -38,8 +46,8 @@ function Sidenav() {
                   onClick={() => setActive(item.name)}
                   className={`flex items-center w-full text-left px-4 py-3 rounded-lg transition-all 
                     ${active === item.name
-                      ? 'bg-sky-100 text-sky-800 font-semibold'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-sky-700'
+                      ? 'bg-gray-100 text-sky-800 font-semibold'
+                      : 'text-gray-100 hover:bg-gray-100/50 hover:text-sky-700'
                     }`}
                 >
                   <span className="mr-3 text-xl">{item.icon}</span>
@@ -50,10 +58,11 @@ function Sidenav() {
           </ul>
         </nav>
         <div className="pt-4 border-t mt-6">
-          <p className="text-sm text-gray-500 mb-2 text-center">{userName}</p>
+            <p className="text-gray-200 justify-center flex text-sm mb-2"> {user || "Guest"} here </p>
           <button
             onClick={handleLogout}
-            className="w-full bg-red-700 hover:bg-red-800 text-white py-2 rounded-md font-semibold"
+            className="w-full  hover:bg-red-800 text-white py-2 rounded-md font-semibold"
+            
           >
             Logout
           </button>
@@ -61,13 +70,16 @@ function Sidenav() {
       </aside>
 
       <main className="flex-1 p-10">
-        <h2 className="text-3xl font-bold text-gray-800 mb-4">{active}</h2>
-        <p className="text-gray-600">
-          This is the <strong>{active}</strong> section. Your content for this page will appear here.
-        </p>
+        
+          {active === 'Home' && <Home />}
+          {active === 'Profile' && <Profile />}
+          {active === 'Explore' && <Explore />}
+          {active === 'Messages' && <Messages />}
+          {active === 'Notifications' && <Notifications />}
+          {active === 'Settings' && <Settings />}
+
       </main>
     </div>
   );
 }
-
 export default Sidenav; 
