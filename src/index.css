@@ -5,6 +5,6 @@
 
 @theme {
   --font-bitcount: "Bitcount Prop Single", sans-serif;
-
- 
+  --color-seco: oklch(27.8% 0.033 256.848);
+  --color-btn: #3B70AF;
 }

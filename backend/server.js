@@ -1,34 +1,46 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-require("dotenv").config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 
-// ✅ Use CORS
+// Basic middleware
 app.use(cors({
-  origin: "*", // Allow all origins for development
-  methods: ["GET", "POST"],
-  allowedHeaders: ["Content-Type"]
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+app.use(express.json());
 
-app.use(express.json()); // Parse incoming JSON
+// Import route modules (each must export an Express router)
+const authRoutes = require('./routes/auth');
+const conversationRoutes = require('./routes/conversation.routes');
+const messageRoutes = require('./routes/message.routes');
+const userRoutes = require('./routes/user.routes'); // <-- NEW
 
-// ✅ Routes
-const authRoutes = require("./routes/auth");
-app.use("/api/auth", authRoutes);
 
-// ✅ MongoDB connection
+
+// Mount routes
+app.use('/api/auth', authRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/users', userRoutes); // <-- NEW
+
+// Optional protected ping for debugging tokens
+const auth = require('./middleware/auth');
+app.get('/api/ping', auth, (req, res) => res.json({ ok: true, userId: req.user.id }));
+
+// Start server after DB connects
+const PORT = process.env.PORT || 4000;
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("✅ Connected to MongoDB");
-
-    // ✅ Run backend on a different port like 5000
-    const PORT = process.env.PORT || 4000;
+    console.log('✅ Connected to MongoDB');
     app.listen(PORT, () => {
       console.log(`🚀 Backend running at http://localhost:${PORT}`);
     });
   })
   .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message);
+    console.error('❌ MongoDB connection error:', err.message);
+    process.exit(1);
   });
