@@ -37,8 +37,10 @@ function Sidenav() {
       
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 bg-gray-700 p-6 shadow-lg flex-col sticky top-0 h-screen">
-        <div className="text-4xl text-white font-bitcount flex items-center mb-10">connect</div>
-        <nav className="flex-1 overflow-y-auto">
+      <div
+      onClick={() => setActive('Home')}
+      className="text-4xl text-white font-bitcount flex items-center mb-10 cursor-pointer">connect</div>
+          <nav className="flex-1 overflow-y-auto">
           <ul className="space-y-3">
             {allNavItems.map((item) => (
               <li key={item.name}>
@@ -71,7 +73,11 @@ function Sidenav() {
 
       {/* Mobile Page Title (Top Center) */}
       <div className="md:hidden fixed top-0 left-0 w-full bg-gray-700 rounded-b-3xl text-white py-3 shadow-md z-20">
-        <h1 className="text-center text-lg font-bitcount">connect</h1>
+              <h1
+          onClick={() => setActive('Home')}
+          className="text-center text-lg font-bitcount cursor-pointer">
+          connect
+        </h1>
       </div>
 
       {/* Mobile Bottom Nav with all items */}

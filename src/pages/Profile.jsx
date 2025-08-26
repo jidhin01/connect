@@ -116,9 +116,7 @@ export default function Profile() {
         <div className="mx-auto max-w-3xl px-4">
           <div className="flex items-center justify-between h-16">
             <h1 className="text-lg font-semibold">Profile</h1>
-            <button className="p-2 rounded-lg hover:bg-gray-100">
-              <EllipsisVerticalIcon className="h-6 w-6 text-gray-600" />
-            </button>
+            
           </div>
         </div>
       </header>
@@ -144,10 +142,11 @@ export default function Profile() {
               </button>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1">
+              <div className=" gap-1">
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  
                   className="text-lg font-semibold bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none"
                 />
                 <CheckBadgeIcon
@@ -155,10 +154,10 @@ export default function Profile() {
                   title="Verified (demo)"
                 />
               </div>
-              <div className="mt-1 flex items-center gap-2 text-gray-600">
+              <div className="mt-1 flex items-center  text-gray-600">
                 <AtSymbolIcon className="h-4 w-4" />
                 <input
-                  value={username}
+                  value={email}
                   onChange={(e) => setUsername(e.target.value)}
                   className="bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none text-sm"
                 />
@@ -218,7 +217,7 @@ export default function Profile() {
         </section>
 
         {/* Privacy */}
-        <section className="bg-white border border-gray-200 rounded-2xl p-4">
+        {/* <section className="bg-white border border-gray-200 rounded-2xl p-4">
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Privacy</h2>
           <div className="space-y-3">
             <ToggleRow
@@ -234,7 +233,7 @@ export default function Profile() {
               onChange={() => setPhotoVisible(!photoVisible)}
             />
           </div>
-        </section>
+        </section> */}
 
         {/* Danger Zone */}
         <section className="bg-white border border-gray-200 rounded-2xl p-4">
