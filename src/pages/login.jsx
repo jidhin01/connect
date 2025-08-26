@@ -1,16 +1,9 @@
+// src/pages/login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import axios from 'axios';
 import Dither from '../components/background/Dither';
-
-// ✅ Detect environment (local vs production)
-const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:4000/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
 
 function Login() {
   const navigate = useNavigate();
@@ -24,21 +17,20 @@ function Login() {
 
   async function handleSignIn() {
     try {
-      const res = await API.post('/auth/login', { email, password });
+      const res = await axios.post('http://localhost:4000/api/auth/login', { email, password });
       const { user, token } = res.data;
 
+      // Save to localStorage for protected API calls
       localStorage.setItem('token', token);
       localStorage.setItem('userId', user.id);
       localStorage.setItem('username', user.username || '');
       localStorage.setItem('email', user.email || '');
 
-      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
+      // Optional: keep in context
       setUser({ id: user.id, username: user.username, email: user.email });
 
-      navigate('/logined');
+      navigate('/logined'); // route that renders Contacts
     } catch (err) {
-      console.error(err.response?.data || err.message);
       setMessage('Invalid credentials or server error');
     }
   }
@@ -48,11 +40,14 @@ function Login() {
       return setMessage('Please fill in all fields.');
     }
     try {
-      await API.post('/auth/register', { username, email, password });
+      await axios.post('http://localhost:4000/api/auth/register', {
+        username,
+        email,
+        password,
+      });
       setMessage('Registration successful. Please sign in.');
       setIsSignUpMode(false);
     } catch (err) {
-      console.error(err.response?.data || err.message);
       setMessage('Registration failed. Try again.');
     }
   }
