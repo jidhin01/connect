@@ -5,36 +5,49 @@ require('dotenv').config();
 
 const app = express();
 
-// Basic middleware
+// ---------------- CORS ----------------
+const allowedOrigins = [
+  'http://localhost:5173',          // local frontend (Vite default)
+  'http://localhost:3000',          // if using CRA
+  process.env.CLIENT_URL || '',     // your deployed frontend
+];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*', // safer in production
+  origin: function (origin, callback) {
+    // allow requests with no origin (like curl or mobile apps)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
 app.use(express.json());
 
-// Import route modules (each must export an Express router)
+// ---------------- Routes ----------------
 const authRoutes = require('./routes/auth');
 const conversationRoutes = require('./routes/conversation.routes');
 const messageRoutes = require('./routes/message.routes');
 const userRoutes = require('./routes/user.routes');
 
-// Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 
-// Health check for Render (shows backend is alive)
+// Health check
 app.get('/', (req, res) => {
-  res.send('✅ Backend is running on Render');
+  res.send('✅ Backend is running');
 });
 
-// Optional protected ping for debugging tokens
+// Protected ping
 const auth = require('./middleware/auth');
 app.get('/api/ping', auth, (req, res) => res.json({ ok: true, userId: req.user.id }));
 
-// Start server after DB connects
+// ---------------- Start Server ----------------
 const PORT = process.env.PORT || 4000;
 
 mongoose.connect(process.env.MONGO_URI, {
