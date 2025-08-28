@@ -2,21 +2,16 @@ import { useState, useEffect } from "react";
 import {
   CameraIcon,
   PencilSquareIcon,
-  EllipsisVerticalIcon,
-  UserIcon,
   AtSymbolIcon,
   EnvelopeIcon,
   GlobeAltIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  LockClosedIcon,
-  ArrowRightOnRectangleIcon,
-  TrashIcon,
-  QrCodeIcon,
   CheckBadgeIcon,
   CheckIcon,
   XMarkIcon,
+  ArrowRightOnRectangleIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
+import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
   const [name, setName] = useState("");
@@ -31,7 +26,17 @@ export default function Profile() {
   const [err, setErr] = useState("");
   const [isUsernameEditing, setIsUsernameEditing] = useState(false);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  const navigate = useNavigate();
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    // TODO: if using UserContext -> setUser(null);
+    navigate("/");
+  };
 
   // Fetch user on mount
   useEffect(() => {
@@ -97,7 +102,7 @@ export default function Profile() {
       const user = dataUpdated.user;
       setName(user.username || "");
       setUsername(user.username || "");
-      setIsUsernameEditing(false); // Exit editing mode after successful save
+      setIsUsernameEditing(false);
       alert("Profile updated successfully!");
     } catch (e) {
       setErr(e.message);
@@ -112,11 +117,10 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-seco text-gray-900">
       {/* Header */}
-      <header className=" top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
+      <header className="top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
         <div className="mx-auto max-w-3xl px-4">
           <div className="flex items-center justify-between h-16">
             <h1 className="text-lg font-semibold">Profile</h1>
-            
           </div>
         </div>
       </header>
@@ -146,7 +150,6 @@ export default function Profile() {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  
                   className="text-lg font-semibold bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none"
                 />
                 <CheckBadgeIcon
@@ -197,56 +200,39 @@ export default function Profile() {
               value={email}
               copy
             />
-            
-            {/* THIS IS THE MODIFIED SECTION */}
-            <EditableRow 
-                icon={<GlobeAltIcon className="h-5 w-5 text-gray-600" />}
-                label="Username"
-                value={username}
-                onChange={setUsername}
-                isEditing={isUsernameEditing}
-                onToggleEdit={() => setIsUsernameEditing(!isUsernameEditing)}
-                onSave={saveProfile}
-                onCancel={() => {
-                  setUsername(username); // Revert to current value
-                  setIsUsernameEditing(false);
-                }}
+
+            <EditableRow
+              icon={<GlobeAltIcon className="h-5 w-5 text-gray-600" />}
+              label="Username"
+              value={username}
+              onChange={setUsername}
+              isEditing={isUsernameEditing}
+              onToggleEdit={() => setIsUsernameEditing(!isUsernameEditing)}
+              onSave={saveProfile}
+              onCancel={() => {
+                setUsername(username);
+                setIsUsernameEditing(false);
+              }}
             />
-            {/* END OF MODIFIED SECTION */}
           </div>
         </section>
 
-        {/* Privacy */}
-        {/* <section className="bg-white border border-gray-200 rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Privacy</h2>
-          <div className="space-y-3">
-            <ToggleRow
-              icon={<EyeIcon className="h-5 w-5 text-gray-600" />}
-              label="Show Last Seen"
-              enabled={lastSeenVisible}
-              onChange={() => setLastSeenVisible(!lastSeenVisible)}
-            />
-            <ToggleRow
-              icon={<EyeSlashIcon className="h-5 w-5 text-gray-600" />}
-              label="Show Profile Photo"
-              enabled={photoVisible}
-              onChange={() => setPhotoVisible(!photoVisible)}
-            />
-          </div>
-        </section> */}
-
         {/* Danger Zone */}
         <section className="bg-white border border-gray-200 rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Danger Zone</h2>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">
+            Danger Zone
+          </h2>
           <div className="flex flex-col sm:flex-row gap-2">
             <DangerBtn
               icon={<ArrowRightOnRectangleIcon className="h-5 w-5" />}
               label="Log out"
+              onClick={handleLogout}
             />
             <DangerBtn
               icon={<TrashIcon className="h-5 w-5" />}
               label="Delete account"
               variant="danger"
+              onClick={() => alert("Delete account clicked")}
             />
           </div>
         </section>
@@ -286,8 +272,17 @@ function Row({ icon, label, value, actionLabel, onAction, copy = false }) {
   );
 }
 
-// New component for the editable row
-function EditableRow({ icon, label, value, onChange, isEditing, onToggleEdit, onSave, onCancel }) {
+// Editable row
+function EditableRow({
+  icon,
+  label,
+  value,
+  onChange,
+  isEditing,
+  onToggleEdit,
+  onSave,
+  onCancel,
+}) {
   return (
     <div className="py-3 flex items-center gap-3">
       <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
@@ -336,33 +331,7 @@ function EditableRow({ icon, label, value, onChange, isEditing, onToggleEdit, on
   );
 }
 
-function ToggleRow({ icon, label, enabled, onChange }) {
-  return (
-    <div className="py-2 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
-          {icon}
-        </div>
-        <p className="text-sm text-gray-600">{label}</p>
-      </div>
-      <button
-        onClick={onChange}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-          enabled ? "bg-btn" : "bg-gray-300"
-        }`}
-        aria-pressed={enabled}
-      >
-        <span
-          className={`inline-block h-5 w-5 rounded-full bg-white transition ${
-            enabled ? "translate-x-5" : "translate-x-1"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
-function DangerBtn({ icon, label, variant = "warn" }) {
+function DangerBtn({ icon, label, variant = "warn", onClick }) {
   const styles =
     variant === "danger"
       ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
@@ -370,7 +339,7 @@ function DangerBtn({ icon, label, variant = "warn" }) {
   return (
     <button
       className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2 px-4 text-sm font-semibold ${styles}`}
-      onClick={() => alert(label)}
+      onClick={onClick}
     >
       {icon}
       {label}

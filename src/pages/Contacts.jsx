@@ -349,9 +349,6 @@ function ContactRow({ contact }) {
           <ActionMini title="Message">
             <ChatBubbleOvalLeftIcon className="h-5 w-5 text-gray-700" />
           </ActionMini>
-          <ActionMini title="Call">
-            <PhoneIcon className="h-5 w-5 text-gray-700" />
-          </ActionMini>
         </div>
       </div>
     </li>

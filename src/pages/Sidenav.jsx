@@ -10,7 +10,6 @@ import Home from './home';
 import Profile from './Profile';
 import Contacts from './Contacts';
 // import Chat from './Chat';
-import Calls from './Calls';
 import Settings from './Settings';
 
 function Sidenav() {
@@ -22,7 +21,6 @@ function Sidenav() {
   const allNavItems = [
     { name: 'Home', icon: <IoHomeOutline /> },
     // { name: 'Chat', icon: <FiMessageSquare /> },
-    { name: 'Calls', icon: <FiPhone /> },
     { name: 'Profile', icon: <CgProfile /> },
     { name: 'Contacts', icon: <MdOutlineExplore /> },
     { name: 'Settings', icon: <IoSettingsOutline /> },
@@ -104,7 +102,6 @@ function Sidenav() {
         {active === 'Profile' && <Profile />}
         {active === 'Contacts' && <Contacts />}
         {/* {active === 'Chat' && <Chat />} */}
-        {active === 'Calls' && <Calls />}
         {active === 'Settings' && <Settings />}
       </main>
     </div>
