@@ -9,57 +9,80 @@ import {
 const BACKEND_URL = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
-// Just first letter extraction utility
+// String safety helpers
+const toStr = (v) => (v == null ? "" : String(v));
+const lower = (v) => (typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase());
+
+// First letter (single initial) only
 function getInitial(name) {
   if (!name) return "U";
-  return name.trim()[0].toUpperCase();
+  const s = toStr(name).trim();
+  return s ? s[0].toUpperCase() : "U";
 }
 
-// Avatar URL resolver: always one letter!
+// DiceBear Initials URL from a single letter
+function initialAvatarFromLetter(letter) {
+  const l = getInitial(letter);
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(l)}`;
+}
+
+// Label to show for deleted or missing users
+const DELETED_USER_LABEL = "User deleted the account";
+
+// Resolve avatar:
+// - Groups: single-letter initials
+// - Direct: if other user missing/no username/email -> use /nouser.png
+//           else single-letter initials
 function resolveAvatar(conversation, myId) {
-  if (conversation.isGroup) {
-    // Use first letter of group name, or "G"
-    const letter = getInitial(conversation.groupName || "G");
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+  if (conversation?.isGroup) {
+    const letter = getInitial(conversation?.groupName || "G");
+    return initialAvatarFromLetter(letter);
   }
-  // For 1-to-1 chats, find the "other" participant
-  const otherUser = conversation.participants?.find(
-    (p) => p && typeof p === "object" && String(p._id) !== String(myId)
-  ) || {};
-  if (otherUser.photoUrl) {
-    return `${BACKEND_URL}${otherUser.photoUrl}`;
+  const otherUser =
+    conversation?.participants?.find(
+      (p) => p && typeof p === "object" && p._id && String(p._id) !== String(myId)
+    ) || null;
+
+  if (!otherUser || (!otherUser.username && !otherUser.email)) {
+    return "/nouser.png";
   }
-  // Fallback → first letter of username or email
-  const letter = getInitial(otherUser.username || otherUser.email || "U");
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+  const letter = getInitial(otherUser?.username || otherUser?.email || "U");
+  return initialAvatarFromLetter(letter);
 }
 
+// Title: handle groups, 1:1, and deleted users
 const formatTitle = (c, myId) => {
-  if (c.isGroup && c.groupName) return c.groupName;
-  const parts = c.participants || [];
+  if (c?.isGroup && c?.groupName) return toStr(c.groupName);
+
+  const parts = Array.isArray(c?.participants) ? c.participants : [];
   const otherPopulated = parts.find(
     (p) => p && typeof p === "object" && p._id && String(p._id) !== String(myId)
   );
-  if (otherPopulated) {
-    return otherPopulated.username || otherPopulated.email || otherPopulated._id;
+
+  if (!otherPopulated || (!otherPopulated.username && !otherPopulated.email)) {
+    return DELETED_USER_LABEL;
   }
-  const otherId = parts.find((p) => String(p) !== String(myId)) || parts[0];
-  return otherId || "Conversation";
+
+  return toStr(otherPopulated.username || otherPopulated.email || otherPopulated._id);
 };
 
+// Last message preview: also handle deleted sender gracefully
 const formatPreview = (c) => {
-  const lm = c.lastMessage;
+  const lm = c?.lastMessage;
   if (!lm) return "No messages yet";
-  const sender =
+
+  const rawSender =
     lm?.sender?.username ||
     lm?.sender?.email ||
-    (typeof lm?.sender === "string" ? lm.sender : "Someone");
+    (typeof lm?.sender === "string" ? lm.sender : null);
+
+  const sender = rawSender ? toStr(rawSender) : DELETED_USER_LABEL;
   const text = lm?.text || "";
-  return `${sender}: ${text}`;
+  return toStr(`${sender}: ${text}`);
 };
 
 const inferStatus = (c) => {
-  const updated = new Date(c.updatedAt || c.createdAt || Date.now());
+  const updated = new Date(c?.updatedAt || c?.createdAt || Date.now());
   const minAgo = (Date.now() - updated.getTime()) / 60000;
   if (minAgo < 5) return "online";
   if (minAgo < 180) return "recent";
@@ -74,13 +97,20 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [chats, setChats] = useState([]);
-  const [profilePic, setProfilePic] = useState("");
   const [username, setUsername] = useState("");
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const myId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
-  // Fetch current user's profile for top bar avatar
+  // Reset component state whenever token changes (new session)
+  useEffect(() => {
+    setChats([]);
+    setQuery("");
+    setErr("");
+    setLoading(true);
+  }, [token]);
+
+  // Fetch current user (top bar single-initial avatar)
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -91,12 +121,16 @@ export default function Home() {
         if (!res.ok) throw new Error("Could not fetch user");
         const data = await res.json();
         const user = data.user || {};
-        setProfilePic(user.photoUrl || "");
-        setUsername(user.username || "A");
-      } catch (e) {}
+        setUsername(toStr(user.username || "U"));
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [token]);
 
+  // Fetch conversations and normalize
   useEffect(() => {
     async function load() {
       if (!token) {
@@ -114,22 +148,29 @@ export default function Home() {
           throw new Error(j.error || "Failed to fetch conversations");
         }
         const data = await res.json();
-        const mapped = (data.conversations || []).map((c) => ({
-          id: c._id,
-          name: formatTitle(c, myId),
-          avatar: resolveAvatar(c, myId), // <-- avatar logic
-          status: inferStatus(c),
-          lastMessage: formatPreview(c),
-          time: new Date(c.updatedAt || c.createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          unread: c.unread || 0,
-          pinned: c.pinned || false,
-          muted: c.muted || false,
-          type: c.isGroup ? "group" : "direct",
-          _raw: c,
-        }));
+
+        const mapped = (data.conversations || []).map((c) => {
+          const title = formatTitle(c, myId);
+          const preview = formatPreview(c);
+          const isDeletedPeer = title === DELETED_USER_LABEL && !c?.isGroup;
+
+          return {
+            id: c._id,
+            name: toStr(title),
+            avatar: isDeletedPeer ? "/nouser.png" : resolveAvatar(c, myId),
+            status: inferStatus(c),
+            lastMessage: toStr(preview),
+            time: new Date(c?.updatedAt || c?.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            unread: Number(c?.unread || 0),
+            pinned: Boolean(c?.pinned),
+            muted: Boolean(c?.muted),
+            type: c?.isGroup ? "group" : "direct",
+            _raw: c,
+          };
+        });
 
         setChats(mapped);
       } catch (e) {
@@ -141,26 +182,25 @@ export default function Home() {
     load();
   }, [token, myId]);
 
+  // Safe filter
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = lower(query.trim());
     return chats.filter((c) => {
-      const name = (c.name || "").toLowerCase();
-      const lastMsg = (c.lastMessage || "").toLowerCase();
+      const name = lower(c?.name);
+      const lastMsg = lower(c?.lastMessage);
       const matchesQuery = name.includes(q) || lastMsg.includes(q);
       const matchesTab =
         activeTab === "all" ||
-        (activeTab === "unread" && c.unread > 0) ||
-        (activeTab === "pinned" && c.pinned) ||
-        (activeTab === "mentions" && (c.lastMessage || "").includes("@"));
+        (activeTab === "unread" && Number(c?.unread) > 0) ||
+        (activeTab === "pinned" && !!c?.pinned) ||
+        (activeTab === "mentions" && toStr(c?.lastMessage).includes("@"));
       return matchesQuery && matchesTab;
     });
   }, [query, activeTab, chats]);
 
-  // Top bar: show user avatar, fallback to first letter
+  // Top bar: single letter of username
   const topLetter = getInitial(username);
-  const effectivePhotoSrc = profilePic
-    ? `${BACKEND_URL}${profilePic}`
-    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(topLetter)}`;
+  const effectivePhotoSrc = initialAvatarFromLetter(topLetter);
 
   return (
     <div className="h-screen bg-seco text-gray-900">
@@ -170,7 +210,7 @@ export default function Home() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <img
-                alt="me"
+                alt={username || "me"}
                 src={effectivePhotoSrc}
                 className="h-10 w-10 rounded-full ring-2 ring-indigo-100 object-cover"
               />
@@ -245,7 +285,7 @@ export default function Home() {
   );
 }
 
-// Individual chat item with avatar
+// Chat list item
 function ChatListItem({ chat }) {
   return (
     <li
@@ -260,21 +300,21 @@ function ChatListItem({ chat }) {
         <div className="relative">
           <img
             src={chat.avatar}
-            alt={chat.name}
+            alt={toStr(chat.name)}
             className="h-12 w-12 rounded-full object-cover"
           />
           <StatusDot status={chat.status} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate font-medium">{chat.name}</p>
+            <p className="truncate font-medium">{toStr(chat.name)}</p>
             {chat.type === "group" && (
               <UserGroupIcon className="h-4 w-4 text-gray-400" />
             )}
             {chat.pinned && <PinIcon className="h-4 w-4 text-indigo-500" />}
             {chat.muted && <BellSlashIcon className="h-4 w-4 text-gray-400" />}
           </div>
-          <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
+          <p className="text-sm text-gray-600 truncate">{toStr(chat.lastMessage)}</p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className="text-xs text-gray-500">{chat.time}</span>
@@ -305,7 +345,6 @@ function StatusDot({ status }) {
   );
 }
 
-// Pin icon
 function PinIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={props.className}>

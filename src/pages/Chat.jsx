@@ -11,38 +11,63 @@ import {
 const BACKEND_URL = "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
+// Safety helpers
+const toStr = (v) => (v == null ? "" : String(v));
+
 // Utility to extract first letter initial
 function getInitial(name) {
-  if (!name) return "U";
-  return name.trim()[0].toUpperCase();
+  const s = toStr(name).trim();
+  return s ? s[0].toUpperCase() : "U";
+}
+
+// Deleted/missing label
+const DELETED_USER_LABEL = "User deleted the account";
+
+// Decide if a "user-like" value represents a deleted/missing user
+function isDeletedOrMissingUser(user) {
+  if (!user) return true;
+  // Consider deleted/missing if no username/email present
+  const hasName = toStr(user.username || user.email).trim().length > 0;
+  return !hasName;
 }
 
 // Resolve avatar URL for a user object (sender/partner)
+// - If deleted/missing -> use /nouser.png
+// - Else if photoUrl -> BACKEND_URL + photoUrl
+// - Else -> DiceBear Initials with first letter of username/email
 function resolveAvatar(user) {
-  if (!user) return `https://api.dicebear.com/7.x/initials/svg?seed=U`;
+  if (isDeletedOrMissingUser(user)) return "/nouser.png";
   if (user.photoUrl) return `${BACKEND_URL}${user.photoUrl}`;
   const name = user.username || user.email || "U";
   const letter = getInitial(name);
   return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
 }
 
+// Safe display name for users
+function resolveDisplayName(user, fallback = "User") {
+  if (isDeletedOrMissingUser(user)) return DELETED_USER_LABEL;
+  return user.username || user.email || fallback;
+}
+
 // Format server message
 function mapServerMsg(m, myId) {
-  const isMine = String(m?.sender?._id || m?.sender) === String(myId);
+  const mine = String(m?.sender?._id || m?.sender) === String(myId);
+  const senderUser = typeof m?.sender === "object" ? m.sender : { _id: m?.sender };
+  const authorName = resolveDisplayName(senderUser, "User");
   return {
     id: String(m._id),
     author: {
-      id: String(m?.sender?._id || m?.sender || "unknown"),
-      name: m?.sender?.username || m?.sender?.email || "User",
-      avatar: resolveAvatar(m?.sender),
+      id: String(senderUser?._id || "unknown"),
+      name: authorName,
+      avatar: resolveAvatar(senderUser),
     },
     text: m.text || "",
     time: new Date(m.createdAt || Date.now()).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     }),
-    outgoing: isMine,
-    status: m.status || (isMine ? "sent" : undefined),
+    outgoing: mine,
+    status: m.status || (mine ? "sent" : undefined),
     reactions: [],
   };
 }
@@ -90,14 +115,21 @@ export default function Chat() {
     );
   }
 
-  const partner = useMemo(
-    () => ({
+  // Partner header: derive avatar using the conversationName as a stand-in identity.
+  // If the name equals the deleted label, show /nouser.png; else initials from the name.
+  const partner = useMemo(() => {
+    const isDeleted = toStr(conversationName).trim() === DELETED_USER_LABEL;
+    const avatar = isDeleted
+      ? "/nouser.png"
+      : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+          getInitial(conversationName)
+        )}`;
+    return {
       name: conversationName,
-      avatar: resolveAvatar({ username: conversationName }),
+      avatar,
       status: "online",
-    }),
-    [conversationName]
-  );
+    };
+  }, [conversationName]);
 
   useEffect(() => {
     const listElement = listRef.current;
@@ -160,7 +192,9 @@ export default function Chat() {
         author: {
           id: myId,
           name: "Me",
-          avatar: resolveAvatar({ _id: myId, username: "Me" }),
+          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+            getInitial("Me")
+          )}`,
         },
         text,
         time: new Date().toLocaleTimeString([], {
@@ -190,9 +224,7 @@ export default function Chat() {
       const saved = await res.json();
       const mapped = mapServerMsg(saved, myId);
 
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? mapped : m))
-      );
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? mapped : m)));
     } catch (e) {
       setErr(e.message);
     }
@@ -223,9 +255,7 @@ export default function Chat() {
               <div>
                 <p className="font-semibold leading-5">{partner.name}</p>
                 <p className="text-xs text-gray-500">
-                  {partner.status === "online"
-                    ? "Online"
-                    : "Last seen recently"}
+                  {partner.status === "online" ? "Online" : "Last seen recently"}
                 </p>
               </div>
             </div>
@@ -240,9 +270,7 @@ export default function Chat() {
       >
         <DayDivider label="Today" />
 
-        {loading && (
-          <div className="text-sm text-gray-600 py-2">Loading…</div>
-        )}
+        {loading && <div className="text-sm text-gray-600 py-2">Loading…</div>}
         {!!err && !loading && (
           <div className="text-sm text-red-600 py-2">Error: {err}</div>
         )}
@@ -254,9 +282,7 @@ export default function Chat() {
               const prev = messages[idx - 1];
               const showAvatar =
                 !m.outgoing && (!prev || prev.author.id !== m.author.id);
-              return (
-                <MessageBubble key={m.id} msg={m} showAvatar={showAvatar} />
-              );
+              return <MessageBubble key={m.id} msg={m} showAvatar={showAvatar} />;
             })}
         </ul>
 
@@ -299,8 +325,7 @@ export default function Chat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter")
-                      sendMessage();
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") sendMessage();
                   }}
                   placeholder={`Message ${partner.name}`}
                   className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5 focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition"
@@ -325,24 +350,7 @@ export default function Chat() {
 // Emoji Picker
 function EmojiPicker({ onSelect }) {
   const emojis = [
-    "😀",
-    "😁",
-    "😂",
-    "🤣",
-    "😊",
-    "🙂",
-    "👍",
-    "❤️",
-    "🔥",
-    "🎉",
-    "💯",
-    "🤔",
-    "🤷",
-    "🚀",
-    "💡",
-    "💰",
-    "💪",
-    "😎",
+    "😀","😁","😂","🤣","😊","🙂","👍","❤️","🔥","🎉","💯","🤔","🤷","🚀","💡","💰","💪","😎",
   ];
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-lg max-w-sm">
@@ -381,9 +389,7 @@ function MessageBubble({ msg, showAvatar }) {
     : "bg-white text-gray-900 border border-gray-200 rounded-bl-md items-start";
 
   return (
-    <li
-      className={`flex items-end gap-2 ${msg.outgoing ? "justify-end" : ""}`}
-    >
+    <li className={`flex items-end gap-2 ${msg.outgoing ? "justify-end" : ""}`}>
       {!msg.outgoing && (
         <>
           {showAvatar ? (
@@ -407,9 +413,7 @@ function MessageBubble({ msg, showAvatar }) {
           <p className="break-words mb-1">{msg.text}</p>
           <div className="flex items-center gap-1">
             <span
-              className={`text-[11px] ${
-                msg.outgoing ? "text-indigo-100" : "text-gray-500"
-              }`}
+              className={`text-[11px] ${msg.outgoing ? "text-indigo-100" : "text-gray-500"}`}
             >
               {msg.time}
             </span>
@@ -417,11 +421,7 @@ function MessageBubble({ msg, showAvatar }) {
           </div>
         </div>
         {msg.reactions?.length > 0 && (
-          <div
-            className={`mt-1 flex gap-1 ${
-              msg.outgoing ? "justify-end" : "justify-start"
-            }`}
-          >
+          <div className={`mt-1 flex gap-1 ${msg.outgoing ? "justify-end" : "justify-start"}`}>
             {msg.reactions.map((r, i) => (
               <button
                 key={i}
@@ -441,20 +441,15 @@ function MessageBubble({ msg, showAvatar }) {
 
 function StatusIcon({ status }) {
   if (!status) return null;
-  if (status === "sent") {
-    return <CheckIcon className="h-4 w-4 text-indigo-200" />;
-  }
-  if (status === "delivered") {
+  if (status === "sent") return <CheckIcon className="h-4 w-4 text-indigo-200" />;
+  if (status === "delivered")
     return (
       <span className="inline-flex">
         <CheckIcon className="h-4 w-4 -mr-2 text-indigo-200" />
         <CheckIcon className="h-4 w-4 text-indigo-200" />
       </span>
     );
-  }
-  if (status === "read") {
-    return <CheckBadgeIcon className="h-4 w-4 text-emerald-300" />;
-  }
+  if (status === "read") return <CheckBadgeIcon className="h-4 w-4 text-emerald-300" />;
   return null;
 }
 

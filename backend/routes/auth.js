@@ -6,12 +6,12 @@ const User = require('../models/User');
 
 const router = express.Router();
 
-// Helper to sign JWT
+// Helper: sign JWT
 function signToken(userId) {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
-// Seed a test user to simplify first login
+// Seed a test user (dev helper)
 // POST /api/auth/seed-test-user
 router.post('/seed-test-user', async (req, res) => {
   try {
@@ -26,26 +26,23 @@ router.post('/seed-test-user', async (req, res) => {
     }
     return res.json({ ok: true, email, username, password: plain });
   } catch (err) {
-    console.error(err);
+    console.error('seed-test-user error:', err);
     return res.status(500).json({ error: 'seed failed' });
   }
 });
 
-// PUBLIC: Lookup a user by email (read-only, no auth needed)
+// PUBLIC: Lookup a user by email (read-only)
 // GET /api/auth/by-email?email=<email>
 router.get('/by-email', async (req, res) => {
   try {
     const raw = (req.query.email || '').trim();
     if (!raw) return res.status(400).json({ error: 'email is required' });
-
-    // normalize to lowercase for consistent matching
     const email = raw.toLowerCase();
     const user = await User.findOne({ email }).select('_id username email');
     if (!user) return res.status(404).json({ error: 'User not found' });
-
     return res.json({ user });
   } catch (err) {
-    console.error(err);
+    console.error('by-email error:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -64,16 +61,17 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'username, email, and password are required' });
     }
 
-    const existing = await User.findOne({ email: String(email).toLowerCase().trim() });
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({ error: 'Email already in use' });
     }
 
     const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({
-      username,
-      email: String(email).toLowerCase().trim(),
-      password: hashed
+      username: String(username).trim(),
+      email: normalizedEmail,
+      password: hashed,
     });
 
     const token = signToken(user._id);
@@ -82,7 +80,7 @@ router.post('/register', async (req, res) => {
       token,
     });
   } catch (err) {
-    console.error(err);
+    console.error('register error:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -102,6 +100,7 @@ router.post('/login', async (req, res) => {
     }
 
     if (email) email = String(email).toLowerCase().trim();
+    if (username) username = String(username).trim();
 
     const query = email ? { email } : { username };
     const user = await User.findOne(query);
@@ -109,7 +108,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const ok = await bcrypt.compare(password, user.password);
+    const ok = await bcrypt.compare(String(password), user.password);
     if (!ok) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -120,12 +119,13 @@ router.post('/login', async (req, res) => {
       token,
     });
   } catch (err) {
-    console.error(err);
+    console.error('login error:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Me (token in Authorization header: "Bearer <token>")
+// Me (token in Authorization: Bearer <token>)
+// GET /api/auth/me
 router.get('/me', async (req, res) => {
   try {
     const header = req.headers.authorization || '';
@@ -140,7 +140,7 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ error: 'Invalid token payload' });
     }
 
-    const user = await User.findById(userId).select('_id username email');
+    const user = await User.findById(userId).select('_id username email status bio phone photoUrl showLastSeen showPhoto');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

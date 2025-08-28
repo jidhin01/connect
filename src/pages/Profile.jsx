@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   CameraIcon,
   PencilSquareIcon,
@@ -13,13 +13,84 @@ import {
 } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
 
-const BACKEND_URL = import.meta.env.VITE_API_BASE || "http://localhost:4000"; // e.g. https://your-backend.onrender.com
+const BACKEND_URL = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
-// Utility: Get single uppercase initial from name
+// Helpers
+const toStr = (v) => (v == null ? "" : String(v));
 function getInitial(name) {
-  if (!name) return "A";
-  return name.trim()[0].toUpperCase();
+  const s = toStr(name).trim();
+  return s ? s[0].toUpperCase() : "A";
+}
+function initialsAvatar(letter) {
+  const l = getInitial(letter);
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(l)}`;
+}
+
+// Tiny toast
+function Toast({ toast, onClose }) {
+  if (!toast) return null;
+  const colors =
+    toast.type === "success"
+      ? "bg-green-100 text-green-800"
+      : toast.type === "error"
+      ? "bg-red-100 text-red-800"
+      : "bg-gray-100 text-gray-800";
+  return (
+    <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg text-sm ${colors}`}>
+      <div className="flex items-center gap-2">
+        <span>{toast.msg}</span>
+        <button onClick={onClose} className="ml-2 text-xs opacity-70 hover:opacity-100">
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Confirmation dialog
+function ConfirmDialog({
+  open,
+  title = "Confirm",
+  message,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  onConfirm,
+  onCancel,
+  loading = false,
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm border border-gray-200">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          <button onClick={onCancel} className="p-1 rounded hover:bg-gray-50" title="Close">
+            <XMarkIcon className="h-5 w-5 text-gray-600" />
+          </button>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-sm text-gray-700">{message}</p>
+        </div>
+        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 text-sm"
+          >
+            {loading ? "Deleting..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Profile() {
@@ -31,23 +102,42 @@ export default function Profile() {
   const [phone, setPhone] = useState("");
   const [lastSeenVisible, setLastSeenVisible] = useState(true);
   const [photoVisible, setPhotoVisible] = useState(true);
-  const [profilePic, setProfilePic] = useState(""); // stores server path (e.g. /uploads/profile_photos/abc.jpg)
+  const [profilePic, setProfilePic] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [isUsernameEditing, setIsUsernameEditing] = useState(false);
 
+  // Keep a snapshot of last saved server state to support Cancel restore
+  const lastSavedRef = useRef({
+    username: "",
+    bio: "",
+    status: "",
+    phone: "",
+    showLastSeen: true,
+    showPhoto: true,
+    email: "",
+    photoUrl: "",
+  });
+
+  // toast + confirm modal
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, type = "info", ms = 2500) => {
+    setToast({ msg, type });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => setToast(null), ms);
+  };
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const navigate = useNavigate();
-
   const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
 
-  // Logout
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/");
   };
 
-  // Fetch user on mount
   useEffect(() => {
     if (!token) {
       setErr("Not logged in");
@@ -69,6 +159,18 @@ export default function Profile() {
         setLastSeenVisible(user.showLastSeen ?? true);
         setPhotoVisible(user.showPhoto ?? true);
         setProfilePic(user.photoUrl || "");
+
+        // snapshot last saved state for restore on cancel
+        lastSavedRef.current = {
+          username: user.username || "",
+          bio: user.bio || "",
+          status: user.status || "",
+          phone: user.phone || "",
+          showLastSeen: user.showLastSeen ?? true,
+          showPhoto: user.showPhoto ?? true,
+          email: user.email || "",
+          photoUrl: user.photoUrl || "",
+        };
       } catch (e) {
         setErr(e.message);
       } finally {
@@ -97,22 +199,39 @@ export default function Profile() {
         const errRes = await res.json().catch(() => ({}));
         throw new Error(errRes.error || "Failed to save profile");
       }
-      // refresh
+      // Refresh and also update the last-saved snapshot
       const resUpdated = await fetch(`${API_BASE}/auth/me`, { headers: authHeader });
       const dataUpdated = await resUpdated.json();
       const user = dataUpdated.user || {};
       setName(user.username || "");
       setUsername(user.username || "");
+      setBio(user.bio || "");
+      setStatus(user.status || "");
+      setEmail(user.email || "");
+      setPhone(user.phone || "");
+      setLastSeenVisible(user.showLastSeen ?? true);
+      setPhotoVisible(user.showPhoto ?? true);
+      setProfilePic(user.photoUrl || "");
+      lastSavedRef.current = {
+        username: user.username || "",
+        bio: user.bio || "",
+        status: user.status || "",
+        phone: user.phone || "",
+        showLastSeen: user.showLastSeen ?? true,
+        showPhoto: user.showPhoto ?? true,
+        email: user.email || "",
+        photoUrl: user.photoUrl || "",
+      };
       setIsUsernameEditing(false);
-      alert("Profile updated successfully!");
+      showToast("Profile updated", "success");
     } catch (e) {
       setErr(e.message);
+      showToast(e.message || "Failed to update", "error");
     } finally {
       setLoading(false);
     }
   }
 
-  // Upload profile photo (IMPORTANT: POST to match backend)
   async function handlePhotoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -121,7 +240,7 @@ export default function Profile() {
     try {
       const res = await fetch(`${API_BASE}/users/me/photo`, {
         method: "POST",
-        headers: authHeader, // do NOT set Content-Type manually for FormData
+        headers: authHeader, // no Content-Type for FormData
         body: formData,
       });
       if (!res.ok) {
@@ -130,12 +249,15 @@ export default function Profile() {
       }
       const data = await res.json();
       setProfilePic(data.photoUrl || "");
+      // Update snapshot photoUrl
+      lastSavedRef.current.photoUrl = data.photoUrl || "";
+      showToast("Photo updated", "success");
     } catch (err) {
       setErr(err.message);
+      showToast(err.message || "Photo upload failed", "error");
     }
   }
 
-  // Remove profile photo
   async function handleRemovePhoto() {
     try {
       const res = await fetch(`${API_BASE}/users/me/photo`, {
@@ -146,25 +268,74 @@ export default function Profile() {
         const errRes = await res.json().catch(() => ({}));
         throw new Error(errRes.error || "Failed to remove photo");
       }
-      const data = await res.json();
-      setProfilePic(""); // fallback to DiceBear
+      await res.json();
+      setProfilePic("");
+      lastSavedRef.current.photoUrl = "";
+      showToast("Photo removed", "success");
     } catch (err) {
       setErr(err.message);
+      showToast(err.message || "Photo remove failed", "error");
     }
+  }
+
+  // Open modal instead of native confirm
+  function openDeleteConfirm() {
+    setConfirmOpen(true);
+  }
+
+  async function confirmDeleteAccount() {
+    setConfirmBusy(true);
+    setErr("");
+    try {
+      const res = await fetch(`${API_BASE}/users/me`, {
+        method: "DELETE",
+        headers: authHeader, // no Content-Type for empty body
+      });
+      if (!res.ok) {
+        const errRes = await res.json().catch(() => ({}));
+        throw new Error(errRes.error || `Failed to delete account (${res.status})`);
+      }
+      showToast("Account deleted", "success");
+      setTimeout(() => {
+        setConfirmOpen(false);
+        localStorage.removeItem("token");
+        navigate("/");
+      }, 800);
+    } catch (e) {
+      setErr(e.message);
+      showToast(e.message || "Delete failed", "error");
+      setConfirmOpen(false);
+    } finally {
+      setConfirmBusy(false);
+    }
+  }
+
+  // Cancel handlers to restore last saved values (username focus)
+  function cancelUsernameEdit() {
+    setUsername(lastSavedRef.current.username || "");
+    setIsUsernameEditing(false);
   }
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (err) return <div className="p-4 text-red-600">Error: {err}</div>;
 
-  // Use only the first letter of username for DiceBear seed fallback
   const initial = getInitial(username || "A");
-  const effectivePhotoSrc = profilePic
-    ? `${BACKEND_URL}${profilePic}`
-    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(initial)}`;
+  const effectivePhotoSrc = initialsAvatar(initial);
 
   return (
     <div className="min-h-screen bg-seco text-gray-900">
-      {/* Header */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete account"
+        message="This action will permanently remove the account and all associated data. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={confirmDeleteAccount}
+        onCancel={() => setConfirmOpen(false)}
+        loading={confirmBusy}
+      />
+
       <header className="top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
         <div className="mx-auto max-w-3xl px-4">
           <div className="flex items-center justify-between h-16">
@@ -184,7 +355,7 @@ export default function Profile() {
                 className="h-24 w-24 rounded-2xl object-cover"
               />
 
-              {/* Change Photo */}
+              {/* Change Photo (uncomment to enable) */}
               {/* <label className="absolute -bottom-2 -right-2 bg-white border border-gray-200 rounded-xl p-2 shadow hover:bg-gray-50 cursor-pointer">
                 <CameraIcon className="h-5 w-5 text-gray-700" />
                 <input
@@ -195,8 +366,8 @@ export default function Profile() {
                 />
               </label> */}
 
-              {/* Remove Photo */}
-              {/* {profilePic && (
+              {/* Remove Photo (uncomment to enable) */}
+              {/* {!!profilePic && (
                 <button
                   onClick={handleRemovePhoto}
                   className="absolute -bottom-2 left-0 bg-white border border-gray-200 rounded-xl p-2 shadow hover:bg-gray-50"
@@ -219,7 +390,7 @@ export default function Profile() {
                 <AtSymbolIcon className="h-4 w-4" />
                 <input
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)} // fix: was setUsername before
+                  onChange={(e) => setEmail(e.target.value)}
                   className="bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none text-sm"
                 />
               </div>
@@ -245,9 +416,7 @@ export default function Profile() {
               isEditing={isUsernameEditing}
               onToggleEdit={() => setIsUsernameEditing(!isUsernameEditing)}
               onSave={saveProfile}
-              onCancel={() => {
-                setIsUsernameEditing(false);
-              }}
+              onCancel={cancelUsernameEdit}
             />
           </div>
         </section>
@@ -265,7 +434,7 @@ export default function Profile() {
               icon={<TrashIcon className="h-5 w-5" />}
               label="Delete account"
               variant="danger"
-              onClick={() => alert("Delete account clicked")}
+              onClick={openDeleteConfirm}
             />
           </div>
         </section>
@@ -282,11 +451,11 @@ function Row({ icon, label, value, actionLabel, onAction, copy = false }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm text-gray-600">{label}</p>
-        <p className="text-sm font-medium truncate text-gray-900">{value}</p>
+        <p className="text-sm font-medium truncate text-gray-900">{toStr(value)}</p>
       </div>
       {copy && (
         <button
-          onClick={() => navigator.clipboard.writeText(value)}
+          onClick={() => navigator.clipboard.writeText(toStr(value))}
           className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-xs"
         >
           Copy
@@ -324,12 +493,12 @@ function EditableRow({
         {isEditing ? (
           <input
             type="text"
-            value={value}
+            value={toStr(value)}
             onChange={(e) => onChange(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         ) : (
-          <p className="text-sm font-medium truncate text-gray-900">{value}</p>
+          <p className="text-sm font-medium truncate text-gray-900">{toStr(value)}</p>
         )}
       </div>
       {isEditing ? (

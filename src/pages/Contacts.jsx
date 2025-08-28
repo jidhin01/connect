@@ -14,47 +14,62 @@ const BACKEND_URL = "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 const tabs = [{ key: "all", label: "All" }];
 
-// Utility to extract first letter initial
+// String safety helpers
+const toStr = (v) => (v == null ? "" : String(v));
+const lower = (v) => (typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase());
+
+// First letter only
 function getInitial(name) {
   if (!name) return "U";
-  return name.trim()[0].toUpperCase();
+  const s = toStr(name).trim();
+  return s ? s[0].toUpperCase() : "U";
 }
 
-// Avatar resolver for contacts (same as in chats)
+// DiceBear Initials (single-letter seed)
+function initialAvatarFromLetter(letter) {
+  const l = getInitial(letter);
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(l)}`;
+}
+
+// Label for deleted/missing user
+const DELETED_USER_LABEL = "User deleted the account";
+
+// Avatar resolver for contacts:
+// - Groups: one-letter initials
+// - Direct: if other user missing or lacks username/email -> use /nouser.png
+//           else use one-letter initials from username/email
 function resolveContactAvatar(conversation, myId) {
-  if (conversation.isGroup) {
-    const letter = getInitial(conversation.groupName || "G");
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+  if (conversation?.isGroup) {
+    const letter = getInitial(conversation?.groupName || "G");
+    return initialAvatarFromLetter(letter);
   }
-
   const otherUser =
-    conversation.participants?.find(
-      (p) => p && typeof p === "object" && String(p._id) !== String(myId)
-    ) || {};
+    conversation?.participants?.find(
+      (p) => p && typeof p === "object" && p._id && String(p._id) !== String(myId)
+    ) || null;
 
-  if (otherUser.photoUrl) {
-    return `${BACKEND_URL}${otherUser.photoUrl}`;
+  if (!otherUser || (!otherUser.username && !otherUser.email)) {
+    return "/nouser.png";
   }
-
-  const letter = getInitial(otherUser.username || otherUser.email || "U");
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+  const letter = getInitial(otherUser?.username || otherUser?.email || "U");
+  return initialAvatarFromLetter(letter);
 }
 
+// Title: groups, direct, and deleted user handling
 const formatTitle = (c, myId) => {
-  if (c.isGroup && c.groupName) return c.groupName;
-  const parts = c.participants || [];
+  if (c?.isGroup && c?.groupName) return toStr(c.groupName);
+  const parts = Array.isArray(c?.participants) ? c.participants : [];
   const otherPopulated = parts.find(
     (p) => p && typeof p === "object" && p._id && String(p._id) !== String(myId)
   );
-  if (otherPopulated) {
-    return otherPopulated.username || otherPopulated.email || otherPopulated._id;
+  if (!otherPopulated || (!otherPopulated.username && !otherPopulated.email)) {
+    return DELETED_USER_LABEL;
   }
-  const otherId = parts.find((p) => String(p) !== String(myId)) || parts[0];
-  return otherId || "Conversation";
+  return toStr(otherPopulated.username || otherPopulated.email || otherPopulated._id);
 };
 
 const inferStatus = (c) => {
-  const updated = new Date(c.updatedAt || c.createdAt || Date.now());
+  const updated = new Date(c?.updatedAt || c?.createdAt || Date.now());
   const minAgo = (Date.now() - updated.getTime()) / 60000;
   if (minAgo < 5) return "online";
   if (minAgo < 180) return "recent";
@@ -71,7 +86,6 @@ export default function Contacts() {
   const [emailInput, setEmailInput] = useState("");
   const [toast, setToast] = useState(null);
 
-  const [profilePic, setProfilePic] = useState("");
   const [username, setUsername] = useState("");
 
   const token =
@@ -79,7 +93,15 @@ export default function Contacts() {
   const myId =
     typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
-  // Fetch current user's profile for header avatar with fallback to initials
+  // Reset on session change
+  useEffect(() => {
+    setContacts([]);
+    setQuery("");
+    setErr("");
+    setLoading(true);
+  }, [token]);
+
+  // Fetch current user's profile for header initial avatar
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -90,10 +112,11 @@ export default function Contacts() {
         if (!res.ok) throw new Error("Could not fetch user");
         const data = await res.json();
         const user = data.user || {};
-        setProfilePic(user.photoUrl || "");
-        setUsername(user.username || "A");
+        setUsername(toStr(user.username || "U"));
       } catch (e) {
         // silent fail
+      } finally {
+        setLoading(false);
       }
     })();
   }, [token]);
@@ -120,18 +143,23 @@ export default function Contacts() {
       }
       const data = await res.json();
 
-      const mapped = (data.conversations || []).map((c) => ({
-        id: c._id,
-        name: formatTitle(c, myId),
-        avatar: resolveContactAvatar(c, myId),
-        status: inferStatus(c),
-        lastSeen:
-          inferStatus(c) === "online"
-            ? "Online"
-            : `Last active ${new Date(c.updatedAt || c.createdAt).toLocaleString()}`,
-        favorite: false,
-        _raw: c,
-      }));
+      const mapped = (data.conversations || []).map((c) => {
+        const title = formatTitle(c, myId);
+        const isDeletedPeer = title === DELETED_USER_LABEL && !c?.isGroup;
+
+        return {
+          id: c._id,
+          name: toStr(title),
+          avatar: isDeletedPeer ? "/nouser.png" : resolveContactAvatar(c, myId),
+          status: inferStatus(c),
+          lastSeen:
+            inferStatus(c) === "online"
+              ? "Online"
+              : `Last active ${new Date(c?.updatedAt || c?.createdAt).toLocaleString()}`,
+          favorite: false,
+          _raw: c,
+        };
+      });
 
       setContacts(mapped);
     } catch (e) {
@@ -203,20 +231,18 @@ export default function Contacts() {
   }
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = lower(query.trim());
     if (!q) return contacts;
     return contacts.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.lastSeen && c.lastSeen.toLowerCase().includes(q))
+        lower(c?.name).includes(q) ||
+        (c?.lastSeen && lower(c?.lastSeen).includes(q))
     );
   }, [query, contacts]);
 
-  // Header top letter initial for fallback avatar
+  // Header top letter initial avatar
   const topLetter = getInitial(username);
-  const effectivePhotoSrc = profilePic
-    ? `${BACKEND_URL}${profilePic}`
-    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(topLetter)}`;
+  const effectivePhotoSrc = initialAvatarFromLetter(topLetter);
 
   return (
     <div className="h-screen bg-seco text-gray-900 relative">
@@ -278,7 +304,7 @@ export default function Contacts() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <img
-                alt="me"
+                alt={username || "me"}
                 src={effectivePhotoSrc}
                 className="h-10 w-10 rounded-full ring-2 ring-indigo-100 object-cover"
               />
@@ -287,9 +313,7 @@ export default function Contacts() {
                 <p className="text-xs text-gray-500">Find people and start chats</p>
               </div>
             </div>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
-              <EllipsisVerticalIcon className="h-6 w-6 text-gray-600" />
-            </button>
+            
           </div>
 
           {/* Search + Actions */}
@@ -344,7 +368,6 @@ export default function Contacts() {
           <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
             My Contacts
           </span>
-          <button className="text-xs text-btn hover:underline">Sort A–Z</button>
         </div>
 
         {loading && (
@@ -382,19 +405,19 @@ function ContactRow({ contact }) {
         <div className="relative">
           <img
             src={contact.avatar}
-            alt={contact.name}
+            alt={toStr(contact.name)}
             className="h-12 w-12 rounded-full object-cover"
           />
           <StatusDot status={contact.status} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate font-medium">{contact.name}</p>
+            <p className="truncate font-medium">{toStr(contact.name)}</p>
             {contact.favorite && (
               <StarIcon className="h-4 w-4 text-amber-500" aria-label="Favourite" />
             )}
           </div>
-          <p className="text-sm text-gray-600 truncate">{contact.lastSeen || "—"}</p>
+          <p className="text-sm text-gray-600 truncate">{toStr(contact.lastSeen) || "—"}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ActionMini title="Message">
