@@ -112,8 +112,7 @@ function AccountSection() {
         label="Email"
         value={email}
         onChange={setEmail}
-        icon={<InboxArrowDownIcon className="h-5 w-5 text-gray-600" />}
-        onEdit={handleSaveAccount}
+       
       />
       <Field
         label="Username"
