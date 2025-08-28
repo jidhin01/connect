@@ -1,193 +1,46 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  CameraIcon,
-  PencilSquareIcon,
-  EllipsisVerticalIcon,
-  UserIcon,
-  AtSymbolIcon,
-  PhoneIcon,
-  EnvelopeIcon,
+  Cog6ToothIcon,
+  BellIcon,
+  ChatBubbleLeftRightIcon,
+  ShieldCheckIcon,
+  KeyIcon,
   GlobeAltIcon,
+  PaintBrushIcon,
+  InboxArrowDownIcon,
+  TrashIcon,
+  QuestionMarkCircleIcon,
+  ArrowRightOnRectangleIcon,
   EyeIcon,
   EyeSlashIcon,
-  DevicePhoneMobileIcon,
-  LockClosedIcon,
-  ArrowRightOnRectangleIcon,
-  TrashIcon,
-  QrCodeIcon,
-  CheckBadgeIcon,
+  SpeakerWaveIcon,
+  SpeakerXMarkIcon,
+  ArrowUpOnSquareIcon,
 } from "@heroicons/react/24/outline";
 
-export default function Profile() {
-  const [name, setName] = useState("John Doe");
-  const [username, setUsername] = useState("john_doe");
-  const [bio, setBio] = useState("Building a modern messaging app.");
-  const [status, setStatus] = useState("Available");
-  const [email, setEmail] = useState("john@example.com");
-  const [phone, setPhone] = useState("+1 202 555 0123");
-  const [lastSeenVisible, setLastSeenVisible] = useState(true);
-  const [photoVisible, setPhotoVisible] = useState(true);
-
+export default function Settings() {
   return (
     <div className="min-h-screen bg-seco text-gray-900">
       {/* Header */}
-      <header className=" top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
+      <header className="top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
         <div className="mx-auto max-w-3xl px-4">
           <div className="flex items-center justify-between h-16">
-            <h1 className="text-lg font-semibold">Profile</h1>
-            <button className="p-2 rounded-lg hover:bg-gray-100">
-              <EllipsisVerticalIcon className="h-6 w-6 text-gray-600" />
-            </button>
+            <div className="flex items-center gap-2">
+              <Cog6ToothIcon className="h-6 w-6 text-gray-700" />
+              <h1 className="text-lg font-semibold">Settings</h1>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
-        {/* Avatar Card */}
-        <section className="bg-white border border-gray-200 rounded-2xl p-4">
-          <div className="flex items-start gap-4">
-            <div className="relative">
-              <img
-                src="https://i.pravatar.cc/160?img=5"
-                alt="Avatar"
-                className="h-24 w-24 rounded-2xl object-cover"
-              />
-              <button
-                title="Change photo"
-                className="absolute -bottom-2 -right-2 bg-white border border-gray-200 rounded-xl p-2 shadow hover:bg-gray-50"
-              >
-                <CameraIcon className="h-5 w-5 text-gray-700" />
-              </button>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="text-lg font-semibold bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none"
-                />
-                <CheckBadgeIcon className="h-5 w-5 text-indigo-500" title="Verified (demo)" />
-              </div>
-              <div className="mt-1 flex items-center gap-2 text-gray-600">
-                <AtSymbolIcon className="h-4 w-4" />
-                <input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none text-sm"
-                />
-                <QrCodeIcon className="h-4 w-4 text-gray-500 ml-1" title="Share QR" />
-              </div>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={2}
-                placeholder="Add a bio"
-                className="mt-3 w-full resize-none text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Status */}
-        <section className="bg-white border border-gray-200 rounded-2xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Current status</p>
-              <input
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="mt-0.5 text-gray-900 font-medium bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none"
-              />
-            </div>
-            <button className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
-              <PencilSquareIcon className="h-5 w-5 text-gray-700" />
-            </button>
-          </div>
-        </section>
-
-        {/* Contact Info */}
-        <section className="bg-white border border-gray-200 rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Contact</h2>
-          <div className="divide-y divide-gray-100">
-            <Row
-              icon={<PhoneIcon className="h-5 w-5 text-gray-600" />}
-              label="Phone"
-              value={phone}
-              actionLabel="Edit"
-              onAction={() => {}}
-            />
-            <Row
-              icon={<EnvelopeIcon className="h-5 w-5 text-gray-600" />}
-              label="Email"
-              value={email}
-              actionLabel="Edit"
-              onAction={() => {}}
-            />
-            <Row
-              icon={<GlobeAltIcon className="h-5 w-5 text-gray-600" />}
-              label="Username link"
-              value={`app.example/${username}`}
-              copy
-            />
-          </div>
-        </section>
-
-        {/* Privacy */}
-        <section className="bg-white border border-gray-200 rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Privacy</h2>
-          <div className="space-y-3">
-            <ToggleRow
-              icon={<EyeIcon className="h-5 w-5 text-gray-600" />}
-              label="Show Last Seen/Online"
-              enabled={lastSeenVisible}
-              onChange={() => setLastSeenVisible((v) => !v)}
-            />
-            <ToggleRow
-              icon={<UserIcon className="h-5 w-5 text-gray-600" />}
-              label="Show Profile Photo"
-              enabled={photoVisible}
-              onChange={() => setPhotoVisible((v) => !v)}
-              onIconOff={<EyeSlashIcon className="h-5 w-5 text-gray-600" />}
-            />
-          </div>
-        </section>
-
-        {/* Security */}
-        <section className="bg-white border border-gray-200 rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Security</h2>
-          <div className="divide-y divide-gray-100">
-            <Row
-              icon={<DevicePhoneMobileIcon className="h-5 w-5 text-gray-600" />}
-              label="Linked Devices"
-              value="2 active"
-              actionLabel="Manage"
-              onAction={() => {}}
-            />
-            <Row
-              icon={<LockClosedIcon className="h-5 w-5 text-gray-600" />}
-              label="Two-Factor Authentication"
-              value="Off"
-              actionLabel="Set up"
-              onAction={() => {}}
-            />
-          </div>
-        </section>
-
-        {/* Danger Zone */}
-        <section className="bg-white border border-gray-200 rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Danger zone</h2>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <DangerBtn
-              icon={<ArrowRightOnRectangleIcon className="h-5 w-5" />}
-              label="Log out"
-            />
-            <DangerBtn
-              icon={<TrashIcon className="h-5 w-5" />}
-              label="Delete account"
-              variant="danger"
-            />
-          </div>
-        </section>
+        <AccountSection />
+        <PrivacySecuritySection />
+        <ChatsSection />
+        <NotificationsSection />
+        <HelpAboutSection />
+        <DangerZone />
       </main>
 
       <div className="h-14 md:hidden" />
@@ -195,7 +48,281 @@ export default function Profile() {
   );
 }
 
-function Row({ icon, label, value, actionLabel, onAction, copy = false }) {
+/* ---------------- Account ---------------- */
+function AccountSection() {
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  // fetch user
+  useEffect(() => {
+    if (!token) {
+      setErr("Not logged in");
+      setLoading(false);
+      return;
+    }
+
+    async function fetchUser() {
+      try {
+        const res = await fetch("http://localhost:4000/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to load user");
+        const data = await res.json();
+        const user = data.user;
+        setEmail(user.email || "");
+        setUsername(user.username || "");
+      } catch (e) {
+        setErr(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchUser();
+  }, [token]);
+
+  const handleSaveAccount = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/api/auth/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email, username }),
+      });
+      if (!res.ok) throw new Error("Failed to update account");
+      alert("Account updated successfully!");
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  if (loading)
+    return <Section title="Account">Loading user details...</Section>;
+  if (err) return <Section title="Account">Error: {err}</Section>;
+
+  return (
+    <Section title="Account" icon={<KeyIcon className="h-5 w-5 text-gray-700" />}>
+      <Field
+        label="Email"
+        value={email}
+        onChange={setEmail}
+        icon={<InboxArrowDownIcon className="h-5 w-5 text-gray-600" />}
+        onEdit={handleSaveAccount}
+      />
+      <Field
+        label="Username"
+        value={username}
+        onChange={setUsername}
+        prefix="@"
+        icon={<GlobeAltIcon className="h-5 w-5 text-gray-600" />}
+        onEdit={handleSaveAccount}
+      />
+      <div className="mt-3 flex gap-2">
+        <Button
+          variant="outline"
+          onClick={() => alert("Change password clicked")}
+        >
+          Change password
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
+/* ---------------- Privacy & Security ---------------- */
+function PrivacySecuritySection() {
+  const [showLastSeen, setShowLastSeen] = useState(true);
+  const [showReadReceipts, setShowReadReceipts] = useState(true);
+  const [showTyping, setShowTyping] = useState(true);
+  const [e2ee, setE2ee] = useState(true);
+  const [disappearing, setDisappearing] = useState(false);
+
+  return (
+    <Section
+      title="Privacy & Security"
+      icon={<ShieldCheckIcon className="h-5 w-5 text-gray-700" />}
+    >
+      <Toggle
+        label="Show Last Seen/Online"
+        enabled={showLastSeen}
+        onChange={() => setShowLastSeen((v) => !v)}
+        iconOn={<EyeIcon className="h-5 w-5 text-gray-600" />}
+        iconOff={<EyeSlashIcon className="h-5 w-5 text-gray-600" />}
+      />
+      <Toggle
+        label="Read receipts"
+        enabled={showReadReceipts}
+        onChange={() => setShowReadReceipts((v) => !v)}
+        iconOn={<ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-600" />}
+      />
+      <Toggle
+        label="Typing indicators"
+        enabled={showTyping}
+        onChange={() => setShowTyping((v) => !v)}
+        iconOn={<ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-600" />}
+      />
+      <Toggle
+        label="End-to-end encryption"
+        description="Protect messages with device-based keys."
+        enabled={e2ee}
+        onChange={() => setE2ee((v) => !v)}
+        iconOn={<ShieldCheckIcon className="h-5 w-5 text-gray-600" />}
+      />
+      <Toggle
+        label="Default disappearing messages"
+        description="New chats will auto-delete messages after the set duration."
+        enabled={disappearing}
+        onChange={() => setDisappearing((v) => !v)}
+        iconOn={<TrashIcon className="h-5 w-5 text-gray-600" />}
+      />
+    </Section>
+  );
+}
+
+/* ---------------- Chats ---------------- */
+function ChatsSection() {
+  const [theme, setTheme] = useState("System");
+  const [fontSize, setFontSize] = useState("Medium");
+
+  return (
+    <Section
+      title="Chats"
+      icon={<PaintBrushIcon className="h-5 w-5 text-gray-700" />}
+    >
+      <SelectRow
+        label="Theme"
+        value={theme}
+        onChange={setTheme}
+        options={["System", "Light", "Dark"]}
+      />
+      <SelectRow
+        label="Font size"
+        value={fontSize}
+        onChange={setFontSize}
+        options={["Small", "Medium", "Large"]}
+      />
+    </Section>
+  );
+}
+
+/* ---------------- Notifications ---------------- */
+function NotificationsSection() {
+  const [enabled, setEnabled] = useState(true);
+  const [mentionsOnly, setMentionsOnly] = useState(false);
+
+  return (
+    <Section
+      title="Notifications"
+      icon={<BellIcon className="h-5 w-5 text-gray-700" />}
+    >
+      <Toggle
+        label="Enable notifications"
+        enabled={enabled}
+        onChange={() => setEnabled((v) => !v)}
+        iconOn={<SpeakerWaveIcon className="h-5 w-5 text-gray-600" />}
+        iconOff={<SpeakerXMarkIcon className="h-5 w-5 text-gray-600" />}
+      />
+      <Toggle
+        label="Mentions only"
+        description="Only alert when you are mentioned or replied to."
+        enabled={mentionsOnly}
+        onChange={() => setMentionsOnly((v) => !v)}
+        iconOn={<ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-600" />}
+      />
+    </Section>
+  );
+}
+
+/* ---------------- Help & About ---------------- */
+function HelpAboutSection() {
+  return (
+    <Section
+      title="Help & About"
+      icon={<QuestionMarkCircleIcon className="h-5 w-5 text-gray-700" />}
+    >
+      <LinkRow label="Help center" onClick={() => alert("Help Center")} />
+      <LinkRow label="Report a problem" onClick={() => alert("Report a problem")} />
+      <LinkRow label="Send feedback" onClick={() => alert("Send feedback")} />
+      <LinkRow label="About • v1.0.0" onClick={() => alert("App version 1.0.0")} />
+    </Section>
+  );
+}
+
+/* ---------------- Danger Zone ---------------- */
+function DangerZone() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete your account? This cannot be undone."
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch("http://localhost:4000/api/auth/delete", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!res.ok) throw new Error("Failed to delete account");
+      localStorage.removeItem("token");
+      navigate("/");
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  return (
+    <Section
+      title="Danger zone"
+      icon={<TrashIcon className="h-5 w-5 text-rose-600" />}
+    >
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button
+          variant="warn"
+          icon={<ArrowRightOnRectangleIcon className="h-5 w-5" />}
+          onClick={handleLogout}
+        >
+          Log out
+        </Button>
+        <Button
+          variant="danger"
+          icon={<TrashIcon className="h-5 w-5" />}
+          onClick={handleDeleteAccount}
+        >
+          Delete account
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
+/* ---------------- Reusable UI ---------------- */
+function Section({ title, icon, children }) {
+  return (
+    <section className="bg-white border border-gray-200 rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
+          {icon}
+        </div>
+        <h2 className="text-sm font-semibold text-gray-700">{title}</h2>
+      </div>
+      <div className="divide-y divide-gray-100">{children}</div>
+    </section>
+  );
+}
+
+function Field({ label, value, onChange, icon, prefix, onEdit }) {
   return (
     <div className="py-3 flex items-center gap-3">
       <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
@@ -203,36 +330,38 @@ function Row({ icon, label, value, actionLabel, onAction, copy = false }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm text-gray-600">{label}</p>
-        <p className="text-sm font-medium text-gray-900 truncate">{value}</p>
+        <div className="mt-0.5 flex items-center gap-2">
+          {prefix && <span className="text-sm text-gray-500">{prefix}</span>}
+          <input
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none text-sm font-medium text-gray-900"
+          />
+        </div>
       </div>
-      {copy && (
-        <button
-          onClick={() => navigator.clipboard?.writeText(value)}
-          className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50"
-        >
-          Copy
-        </button>
-      )}
-      {actionLabel && (
-        <button
-          onClick={onAction}
-          className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50"
-        >
-          {actionLabel}
-        </button>
-      )}
+      <button
+        className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50"
+        onClick={onEdit}
+      >
+        Edit
+      </button>
     </div>
   );
 }
 
-function ToggleRow({ icon, label, enabled, onChange, onIconOff = null }) {
+function Toggle({ label, description, enabled, onChange, iconOn, iconOff }) {
   return (
-    <div className="py-2 flex items-center justify-between">
-      <div className="flex items-center gap-3">
+    <div className="py-3 flex items-center justify-between gap-3">
+      <div className="flex items-start gap-3">
         <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
-          {enabled ? icon : onIconOff || icon}
+          {enabled ? iconOn || null : iconOff || iconOn || null}
         </div>
-        <p className="text-sm font-medium text-gray-900">{label}</p>
+        <div>
+          <p className="text-sm font-medium text-gray-900">{label}</p>
+          {description && (
+            <p className="text-xs text-gray-600 mt-0.5">{description}</p>
+          )}
+        </div>
       </div>
       <button
         onClick={onChange}
@@ -251,17 +380,56 @@ function ToggleRow({ icon, label, enabled, onChange, onIconOff = null }) {
   );
 }
 
-function DangerBtn({ icon, label, variant = "warn" }) {
-  const styles =
-    variant === "danger"
-      ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-      : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100";
+function SelectRow({ label, value, onChange, options }) {
+  return (
+    <div className="py-3 flex items-center justify-between gap-3">
+      <div>
+        <p className="text-sm font-medium text-gray-900">{label}</p>
+        <p className="text-xs text-gray-600 mt-0.5">Current: {value}</p>
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm"
+      >
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function LinkRow({ label, onClick }) {
   return (
     <button
-      className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border ${styles}`}
+      className="w-full text-left py-3 flex items-center justify-between text-sm hover:bg-gray-50 rounded-lg px-2"
+      onClick={onClick}
     >
+      <span className="text-gray-800">{label}</span>
+      <ArrowUpOnSquareIcon className="h-5 w-5 text-gray-400 rotate-90" />
+    </button>
+  );
+}
+
+function Button({ children, variant = "solid", icon = null, onClick }) {
+  const base = "inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm";
+  const styles =
+    variant === "solid"
+      ? "bg-btn text-white hover:bg-indigo-700"
+      : variant === "outline"
+      ? "border border-gray-200 text-gray-800 hover:bg-gray-50"
+      : variant === "warn"
+      ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+      : variant === "danger"
+      ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+      : "";
+  return (
+    <button className={`${base} ${styles}`} onClick={onClick}>
       {icon}
-      <span className="text-sm font-medium">{label}</span>
+      {children}
     </button>
   );
 }

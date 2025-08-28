@@ -1,25 +1,39 @@
-// src/pages/Home.jsx
 import { useEffect, useMemo, useState } from "react";
 import {
   MagnifyingGlassIcon,
-  EllipsisVerticalIcon,
-  FunnelIcon,
   BellSlashIcon,
   UserGroupIcon,
   ChatBubbleOvalLeftIcon,
 } from "@heroicons/react/24/outline";
 
-// Temporary fallback for Pin icon if not available
-const PinIcon = (props) => (
-  <svg viewBox="0 0 24 24" fill="none" className={props.className}>
-    <path d="M12 3l2 4 4 2-6 6-2-4-4-2 6-6z" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M11 21l1-6" stroke="currentColor" strokeWidth="1.5" />
-  </svg>
-);
+const BACKEND_URL = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = `${BACKEND_URL}/api`;
 
-const API_BASE = "http://localhost:4000";
+// Just first letter extraction utility
+function getInitial(name) {
+  if (!name) return "U";
+  return name.trim()[0].toUpperCase();
+}
 
-// Helpers (from Contacts.jsx)
+// Avatar URL resolver: always one letter!
+function resolveAvatar(conversation, myId) {
+  if (conversation.isGroup) {
+    // Use first letter of group name, or "G"
+    const letter = getInitial(conversation.groupName || "G");
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+  }
+  // For 1-to-1 chats, find the "other" participant
+  const otherUser = conversation.participants?.find(
+    (p) => p && typeof p === "object" && String(p._id) !== String(myId)
+  ) || {};
+  if (otherUser.photoUrl) {
+    return `${BACKEND_URL}${otherUser.photoUrl}`;
+  }
+  // Fallback → first letter of username or email
+  const letter = getInitial(otherUser.username || otherUser.email || "U");
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+}
+
 const formatTitle = (c, myId) => {
   if (c.isGroup && c.groupName) return c.groupName;
   const parts = c.participants || [];
@@ -52,12 +66,7 @@ const inferStatus = (c) => {
   return "offline";
 };
 
-const tabs = [
-  { key: "all", label: "All" },
-  // { key: "unread", label: "Unread" },
-  // { key: "pinned", label: "Pinned" },
-  // { key: "mentions", label: "Mentions" },
-];
+const tabs = [{ key: "all", label: "All" }];
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -65,9 +74,28 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [chats, setChats] = useState([]);
+  const [profilePic, setProfilePic] = useState("");
+  const [username, setUsername] = useState("");
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const myId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+
+  // Fetch current user's profile for top bar avatar
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Could not fetch user");
+        const data = await res.json();
+        const user = data.user || {};
+        setProfilePic(user.photoUrl || "");
+        setUsername(user.username || "A");
+      } catch (e) {}
+    })();
+  }, [token]);
 
   useEffect(() => {
     async function load() {
@@ -78,7 +106,7 @@ export default function Home() {
       }
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/api/conversations`, {
+        const res = await fetch(`${API_BASE}/conversations`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
@@ -86,20 +114,19 @@ export default function Home() {
           throw new Error(j.error || "Failed to fetch conversations");
         }
         const data = await res.json();
-
-        const mapped = (data.conversations || []).map((c, idx) => ({
+        const mapped = (data.conversations || []).map((c) => ({
           id: c._id,
           name: formatTitle(c, myId),
-          avatar: `https://i.pravatar.cc/80?img=${(idx % 70) + 1}`,
+          avatar: resolveAvatar(c, myId), // <-- avatar logic
           status: inferStatus(c),
           lastMessage: formatPreview(c),
           time: new Date(c.updatedAt || c.createdAt).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          unread: 0, // could extend with backend unread count
-          pinned: false,
-          muted: false,
+          unread: c.unread || 0,
+          pinned: c.pinned || false,
+          muted: c.muted || false,
           type: c.isGroup ? "group" : "direct",
           _raw: c,
         }));
@@ -114,43 +141,44 @@ export default function Home() {
     load();
   }, [token, myId]);
 
-const filtered = useMemo(() => {
-  const q = query.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return chats.filter((c) => {
+      const name = (c.name || "").toLowerCase();
+      const lastMsg = (c.lastMessage || "").toLowerCase();
+      const matchesQuery = name.includes(q) || lastMsg.includes(q);
+      const matchesTab =
+        activeTab === "all" ||
+        (activeTab === "unread" && c.unread > 0) ||
+        (activeTab === "pinned" && c.pinned) ||
+        (activeTab === "mentions" && (c.lastMessage || "").includes("@"));
+      return matchesQuery && matchesTab;
+    });
+  }, [query, activeTab, chats]);
 
-  return chats.filter((c) => {
-    const name = (c.name || "").toLowerCase();
-    const lastMsg = (c.lastMessage || "").toLowerCase();
-
-    const matchesQuery = name.includes(q) || lastMsg.includes(q);
-
-    const matchesTab =
-      activeTab === "all" ||
-      (activeTab === "unread" && c.unread > 0) ||
-      (activeTab === "pinned" && c.pinned) ||
-      (activeTab === "mentions" && (c.lastMessage || "").includes("@"));
-
-    return matchesQuery && matchesTab;
-  });
-}, [query, activeTab, chats]);
+  // Top bar: show user avatar, fallback to first letter
+  const topLetter = getInitial(username);
+  const effectivePhotoSrc = profilePic
+    ? `${BACKEND_URL}${profilePic}`
+    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(topLetter)}`;
 
   return (
     <div className="h-screen bg-seco text-gray-900">
       {/* Top Bar */}
-      <header className="sticky top-0 z-20 rounded-3xl  bg-white border-b border-gray-200">
+      <header className="sticky top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
         <div className="mx-auto max-w-4xl px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <img
                 alt="me"
-                src="https://i.pravatar.cc/64?img=5"
-                className="h-10 w-10 rounded-full ring-2 ring-indigo-100"
+                src={effectivePhotoSrc}
+                className="h-10 w-10 rounded-full ring-2 ring-indigo-100 object-cover"
               />
               <div>
                 <h1 className="text-lg font-semibold">Chats</h1>
                 <p className="text-xs text-gray-500">All conversations</p>
               </div>
             </div>
-            
           </div>
 
           {/* Search */}
@@ -166,7 +194,6 @@ const filtered = useMemo(() => {
                   className="w-full pl-10 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition"
                 />
               </div>
-              
             </div>
 
             {/* Tabs */}
@@ -218,6 +245,7 @@ const filtered = useMemo(() => {
   );
 }
 
+// Individual chat item with avatar
 function ChatListItem({ chat }) {
   return (
     <li
@@ -237,7 +265,6 @@ function ChatListItem({ chat }) {
           />
           <StatusDot status={chat.status} />
         </div>
-
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-medium">{chat.name}</p>
@@ -249,7 +276,6 @@ function ChatListItem({ chat }) {
           </div>
           <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
         </div>
-
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className="text-xs text-gray-500">{chat.time}</span>
           {chat.unread > 0 && (
@@ -276,6 +302,16 @@ function StatusDot({ status }) {
       }`}
       title={status}
     />
+  );
+}
+
+// Pin icon
+function PinIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={props.className}>
+      <path d="M12 3l2 4 4 2-6 6-2-4-4-2 6-6z" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M11 21l1-6" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
   );
 }
 

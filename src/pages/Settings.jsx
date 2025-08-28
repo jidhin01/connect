@@ -17,6 +17,9 @@ import {
   SpeakerWaveIcon,
   SpeakerXMarkIcon,
   ArrowUpOnSquareIcon,
+  PencilSquareIcon,
+  CheckIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 export default function Settings() {
@@ -54,6 +57,8 @@ function AccountSection() {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [isUsernameEditing, setIsUsernameEditing] = useState(false);
+  const [isEmailEditing, setIsEmailEditing] = useState(false);
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -85,8 +90,9 @@ function AccountSection() {
     fetchUser();
   }, [token]);
 
-  const handleSaveAccount = async () => {
+  const handleSaveAccount = async (field) => {
     try {
+      setLoading(true);
       const res = await fetch("http://localhost:4000/api/auth/update", {
         method: "PUT",
         headers: {
@@ -95,10 +101,29 @@ function AccountSection() {
         },
         body: JSON.stringify({ email, username }),
       });
-      if (!res.ok) throw new Error("Failed to update account");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to update account");
+      }
       alert("Account updated successfully!");
+      if (field === "username") setIsUsernameEditing(false);
+      if (field === "email") setIsEmailEditing(false);
     } catch (e) {
       alert(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEdit = (field) => {
+    // Re-fetch or reset state to original values
+    if (field === "username") {
+      setIsUsernameEditing(false);
+      // Optional: re-fetch user to reset the value
+    }
+    if (field === "email") {
+      setIsEmailEditing(false);
+      // Optional: re-fetch user to reset the value
     }
   };
 
@@ -108,19 +133,26 @@ function AccountSection() {
 
   return (
     <Section title="Account" icon={<KeyIcon className="h-5 w-5 text-gray-700" />}>
-      <Field
+      <EditableRow
         label="Email"
         value={email}
         onChange={setEmail}
-       
+        icon={<InboxArrowDownIcon className="h-5 w-5 text-gray-600" />}
+        isEditing={isEmailEditing}
+        onToggleEdit={() => setIsEmailEditing(!isEmailEditing)}
+        onSave={() => handleSaveAccount("email")}
+        onCancel={() => handleCancelEdit("email")}
       />
-      <Field
+      <EditableRow
         label="Username"
         value={username}
         onChange={setUsername}
         prefix="@"
         icon={<GlobeAltIcon className="h-5 w-5 text-gray-600" />}
-        onEdit={handleSaveAccount}
+        isEditing={isUsernameEditing}
+        onToggleEdit={() => setIsUsernameEditing(!isUsernameEditing)}
+        onSave={() => handleSaveAccount("username")}
+        onCancel={() => handleCancelEdit("username")}
       />
       <div className="mt-3 flex gap-2">
         <Button
@@ -321,7 +353,17 @@ function Section({ title, icon, children }) {
   );
 }
 
-function Field({ label, value, onChange, icon, prefix, onEdit }) {
+function EditableRow({
+  icon,
+  label,
+  value,
+  onChange,
+  prefix,
+  isEditing,
+  onToggleEdit,
+  onSave,
+  onCancel,
+}) {
   return (
     <div className="py-3 flex items-center gap-3">
       <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
@@ -329,21 +371,49 @@ function Field({ label, value, onChange, icon, prefix, onEdit }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm text-gray-600">{label}</p>
-        <div className="mt-0.5 flex items-center gap-2">
-          {prefix && <span className="text-sm text-gray-500">{prefix}</span>}
-          <input
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none text-sm font-medium text-gray-900"
-          />
-        </div>
+        {isEditing ? (
+          <div className="mt-0.5 flex items-center gap-2">
+            {prefix && <span className="text-sm text-gray-500">{prefix}</span>}
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="w-full bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none text-sm font-medium text-gray-900"
+            />
+          </div>
+        ) : (
+          <p className="text-sm font-medium truncate text-gray-900 mt-0.5">
+            {prefix && <span className="text-gray-500">{prefix}</span>}
+            {value}
+          </p>
+        )}
       </div>
-      <button
-        className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50"
-        onClick={onEdit}
-      >
-        Edit
-      </button>
+      {isEditing ? (
+        <div className="flex gap-2">
+          <button
+            onClick={onSave}
+            className="p-2 rounded-full bg-indigo-50 hover:bg-indigo-100"
+            title="Save"
+          >
+            <CheckIcon className="h-5 w-5 text-indigo-600" />
+          </button>
+          <button
+            onClick={onCancel}
+            className="p-2 rounded-full bg-red-50 hover:bg-red-100"
+            title="Cancel"
+          >
+            <XMarkIcon className="h-5 w-5 text-red-600" />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onToggleEdit}
+          className="p-2 rounded-full bg-gray-50 hover:bg-gray-100"
+          title="Edit"
+        >
+          <PencilSquareIcon className="h-5 w-5 text-gray-600" />
+        </button>
+      )}
     </div>
   );
 }

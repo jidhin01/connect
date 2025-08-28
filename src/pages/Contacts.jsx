@@ -3,8 +3,6 @@ import {
   EllipsisVerticalIcon,
   MagnifyingGlassIcon,
   UserPlusIcon,
-  QrCodeIcon,
-  PhoneIcon,
   ChatBubbleOvalLeftIcon,
   StarIcon,
   XMarkIcon,
@@ -12,9 +10,35 @@ import {
   ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
 
-const API_BASE = "http://localhost:4000";
-
+const BACKEND_URL = "http://localhost:4000";
+const API_BASE = `${BACKEND_URL}/api`;
 const tabs = [{ key: "all", label: "All" }];
+
+// Utility to extract first letter initial
+function getInitial(name) {
+  if (!name) return "U";
+  return name.trim()[0].toUpperCase();
+}
+
+// Avatar resolver for contacts (same as in chats)
+function resolveContactAvatar(conversation, myId) {
+  if (conversation.isGroup) {
+    const letter = getInitial(conversation.groupName || "G");
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+  }
+
+  const otherUser =
+    conversation.participants?.find(
+      (p) => p && typeof p === "object" && String(p._id) !== String(myId)
+    ) || {};
+
+  if (otherUser.photoUrl) {
+    return `${BACKEND_URL}${otherUser.photoUrl}`;
+  }
+
+  const letter = getInitial(otherUser.username || otherUser.email || "U");
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+}
 
 const formatTitle = (c, myId) => {
   if (c.isGroup && c.groupName) return c.groupName;
@@ -47,10 +71,32 @@ export default function Contacts() {
   const [emailInput, setEmailInput] = useState("");
   const [toast, setToast] = useState(null);
 
+  const [profilePic, setProfilePic] = useState("");
+  const [username, setUsername] = useState("");
+
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const myId =
     typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+
+  // Fetch current user's profile for header avatar with fallback to initials
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Could not fetch user");
+        const data = await res.json();
+        const user = data.user || {};
+        setProfilePic(user.photoUrl || "");
+        setUsername(user.username || "A");
+      } catch (e) {
+        // silent fail
+      }
+    })();
+  }, [token]);
 
   useEffect(() => {
     if (!token) {
@@ -65,7 +111,7 @@ export default function Contacts() {
   async function reloadConversations() {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/conversations`, {
+      const res = await fetch(`${API_BASE}/conversations`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -74,10 +120,10 @@ export default function Contacts() {
       }
       const data = await res.json();
 
-      const mapped = (data.conversations || []).map((c, idx) => ({
+      const mapped = (data.conversations || []).map((c) => ({
         id: c._id,
         name: formatTitle(c, myId),
-        avatar: `https://i.pravatar.cc/80?img=${(idx % 70) + 1}`,
+        avatar: resolveContactAvatar(c, myId),
         status: inferStatus(c),
         lastSeen:
           inferStatus(c) === "online"
@@ -97,7 +143,7 @@ export default function Contacts() {
 
   async function lookupUserByEmail(email) {
     const res = await fetch(
-      `${API_BASE}/api/auth/by-email?email=${encodeURIComponent(email)}`
+      `${API_BASE}/auth/by-email?email=${encodeURIComponent(email)}`
     );
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -109,7 +155,7 @@ export default function Contacts() {
   }
 
   async function createOrGetOneToOne(otherUserId) {
-    const res = await fetch(`${API_BASE}/api/conversations/one-to-one`, {
+    const res = await fetch(`${API_BASE}/conversations/one-to-one`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -158,14 +204,19 @@ export default function Contacts() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = contacts;
-    if (!q) return list;
-    return list.filter(
+    if (!q) return contacts;
+    return contacts.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         (c.lastSeen && c.lastSeen.toLowerCase().includes(q))
     );
   }, [query, contacts]);
+
+  // Header top letter initial for fallback avatar
+  const topLetter = getInitial(username);
+  const effectivePhotoSrc = profilePic
+    ? `${BACKEND_URL}${profilePic}`
+    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(topLetter)}`;
 
   return (
     <div className="h-screen bg-seco text-gray-900 relative">
@@ -228,8 +279,8 @@ export default function Contacts() {
             <div className="flex items-center gap-3">
               <img
                 alt="me"
-                src="https://i.pravatar.cc/64?img=5"
-                className="h-10 w-10 rounded-full ring-2 ring-indigo-100"
+                src={effectivePhotoSrc}
+                className="h-10 w-10 rounded-full ring-2 ring-indigo-100 object-cover"
               />
               <div>
                 <h1 className="text-lg font-semibold">Contacts</h1>

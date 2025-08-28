@@ -8,7 +8,23 @@ import {
   CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
 
-const API_BASE = "http://localhost:4000";
+const BACKEND_URL = "http://localhost:4000";
+const API_BASE = `${BACKEND_URL}/api`;
+
+// Utility to extract first letter initial
+function getInitial(name) {
+  if (!name) return "U";
+  return name.trim()[0].toUpperCase();
+}
+
+// Resolve avatar URL for a user object (sender/partner)
+function resolveAvatar(user) {
+  if (!user) return `https://api.dicebear.com/7.x/initials/svg?seed=U`;
+  if (user.photoUrl) return `${BACKEND_URL}${user.photoUrl}`;
+  const name = user.username || user.email || "U";
+  const letter = getInitial(name);
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
+}
 
 // Format server message
 function mapServerMsg(m, myId) {
@@ -18,7 +34,7 @@ function mapServerMsg(m, myId) {
     author: {
       id: String(m?.sender?._id || m?.sender || "unknown"),
       name: m?.sender?.username || m?.sender?.email || "User",
-      avatar: "https://i.pravatar.cc/80?img=5",
+      avatar: resolveAvatar(m?.sender),
     },
     text: m.text || "",
     time: new Date(m.createdAt || Date.now()).toLocaleTimeString([], {
@@ -77,7 +93,7 @@ export default function Chat() {
   const partner = useMemo(
     () => ({
       name: conversationName,
-      avatar: "https://i.pravatar.cc/80?img=1",
+      avatar: resolveAvatar({ username: conversationName }),
       status: "online",
     }),
     [conversationName]
@@ -114,7 +130,7 @@ export default function Chat() {
     try {
       setLoading(true);
       setErr("");
-      const res = await fetch(`${API_BASE}/api/messages/${conversationId}`, {
+      const res = await fetch(`${API_BASE}/messages/${conversationId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -144,7 +160,7 @@ export default function Chat() {
         author: {
           id: myId,
           name: "Me",
-          avatar: "https://i.pravatar.cc/80?img=5",
+          avatar: resolveAvatar({ _id: myId, username: "Me" }),
         },
         text,
         time: new Date().toLocaleTimeString([], {
@@ -159,7 +175,7 @@ export default function Chat() {
       setInput("");
       setShowEmojiPicker(false);
 
-      const res = await fetch(`${API_BASE}/api/messages`, {
+      const res = await fetch(`${API_BASE}/messages`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -262,9 +278,9 @@ export default function Chat() {
           <div className="bg-white border rounded-3xl border-gray-200 px-4 py-3">
             <div className="flex items-end gap-2 relative">
               <div className="flex items-center gap-1 z-10">
-                <IconBtn title="Photo">
+                {/* <IconBtn title="Photo">
                   <PhotoIcon className="h-6 w-6 text-gray-700" />
-                </IconBtn>
+                </IconBtn> */}
                 <IconBtn
                   title="Emoji"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
