@@ -25,7 +25,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 /* ---------- Config ---------- */
-const BACKEND_URL = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
 /* ---------- Helpers ---------- */

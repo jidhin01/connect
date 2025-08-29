@@ -8,7 +8,7 @@ import {
   CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
 
-const BACKEND_URL = "http://localhost:4000";
+const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
 // Safety helpers

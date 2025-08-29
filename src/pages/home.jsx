@@ -6,12 +6,14 @@ import {
   ChatBubbleOvalLeftIcon,
 } from "@heroicons/react/24/outline";
 
-const BACKEND_URL = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+// ✅ Correct env var
+const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
 // String safety helpers
 const toStr = (v) => (v == null ? "" : String(v));
-const lower = (v) => (typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase());
+const lower = (v) =>
+  typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase();
 
 // First letter (single initial) only
 function getInitial(name) {
@@ -23,16 +25,15 @@ function getInitial(name) {
 // DiceBear Initials URL from a single letter
 function initialAvatarFromLetter(letter) {
   const l = getInitial(letter);
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(l)}`;
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+    l
+  )}`;
 }
 
 // Label to show for deleted or missing users
 const DELETED_USER_LABEL = "User account deactivated";
 
-// Resolve avatar:
-// - Groups: single-letter initials
-// - Direct: if other user missing/no username/email -> use /nouser.png
-//           else single-letter initials
+// Resolve avatar
 function resolveAvatar(conversation, myId) {
   if (conversation?.isGroup) {
     const letter = getInitial(conversation?.groupName || "G");
@@ -50,7 +51,7 @@ function resolveAvatar(conversation, myId) {
   return initialAvatarFromLetter(letter);
 }
 
-// Title: handle groups, 1:1, and deleted users
+// Title
 const formatTitle = (c, myId) => {
   if (c?.isGroup && c?.groupName) return toStr(c.groupName);
 
@@ -63,10 +64,12 @@ const formatTitle = (c, myId) => {
     return DELETED_USER_LABEL;
   }
 
-  return toStr(otherPopulated.username || otherPopulated.email || otherPopulated._id);
+  return toStr(
+    otherPopulated.username || otherPopulated.email || otherPopulated._id
+  );
 };
 
-// Last message preview: also handle deleted sender gracefully
+// Last message preview
 const formatPreview = (c) => {
   const lm = c?.lastMessage;
   if (!lm) return "No messages yet";
@@ -99,10 +102,12 @@ export default function Home() {
   const [chats, setChats] = useState([]);
   const [username, setUsername] = useState("");
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const myId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const myId =
+    typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
-  // Reset component state whenever token changes (new session)
+  // Reset on token change
   useEffect(() => {
     setChats([]);
     setQuery("");
@@ -110,7 +115,7 @@ export default function Home() {
     setLoading(true);
   }, [token]);
 
-  // Fetch current user (top bar single-initial avatar)
+  // Fetch current user
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -130,7 +135,7 @@ export default function Home() {
     })();
   }, [token]);
 
-  // Fetch conversations and normalize
+  // Fetch conversations
   useEffect(() => {
     async function load() {
       if (!token) {
@@ -182,7 +187,6 @@ export default function Home() {
     load();
   }, [token, myId]);
 
-  // Safe filter
   const filtered = useMemo(() => {
     const q = lower(query.trim());
     return chats.filter((c) => {
@@ -198,7 +202,6 @@ export default function Home() {
     });
   }, [query, activeTab, chats]);
 
-  // Top bar: single letter of username
   const topLetter = getInitial(username);
   const effectivePhotoSrc = initialAvatarFromLetter(topLetter);
 
@@ -267,8 +270,12 @@ export default function Home() {
           </span>
         </div>
 
-        {loading && <div className="py-8 text-sm text-gray-600">Loading chats...</div>}
-        {!!err && !loading && <div className="py-8 text-sm text-red-600">Error: {err}</div>}
+        {loading && (
+          <div className="py-8 text-sm text-gray-600">Loading chats...</div>
+        )}
+        {!!err && !loading && (
+          <div className="py-8 text-sm text-red-600">Error: {err}</div>
+        )}
 
         {!loading && !err && (
           <ul className="space-y-2 pb-28">
@@ -314,7 +321,9 @@ function ChatListItem({ chat }) {
             {chat.pinned && <PinIcon className="h-4 w-4 text-indigo-500" />}
             {chat.muted && <BellSlashIcon className="h-4 w-4 text-gray-400" />}
           </div>
-          <p className="text-sm text-gray-600 truncate">{toStr(chat.lastMessage)}</p>
+          <p className="text-sm text-gray-600 truncate">
+            {toStr(chat.lastMessage)}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className="text-xs text-gray-500">{chat.time}</span>
@@ -348,7 +357,11 @@ function StatusDot({ status }) {
 function PinIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={props.className}>
-      <path d="M12 3l2 4 4 2-6 6-2-4-4-2 6-6z" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M12 3l2 4 4 2-6 6-2-4-4-2 6-6z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
       <path d="M11 21l1-6" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
