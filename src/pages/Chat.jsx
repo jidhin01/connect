@@ -21,7 +21,7 @@ function getInitial(name) {
 }
 
 // Deleted/missing label
-const DELETED_USER_LABEL = "User deleted the account";
+const DELETED_USER_LABEL = "User account deactivated";
 
 // Decide if a "user-like" value represents a deleted/missing user
 function isDeletedOrMissingUser(user) {

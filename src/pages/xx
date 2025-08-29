@@ -8,7 +8,7 @@ import {
   KeyIcon,
   GlobeAltIcon,
   PaintBrushIcon,
-  InboxArrowDownIcon,
+  EnvelopeIcon,
   TrashIcon,
   QuestionMarkCircleIcon,
   ArrowRightOnRectangleIcon,
@@ -21,17 +21,16 @@ import {
   CheckIcon,
   XMarkIcon,
   ClipboardIcon,
-  KeyIcon as KeyOutlineIcon,
 } from "@heroicons/react/24/outline";
 
-/* ---------- Config ---------- */
+/* ---------- Config (same as Profile) ---------- */
 const BACKEND_URL = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
 /* ---------- Helpers ---------- */
 const toStr = (v) => (v == null ? "" : String(v));
 
-/* ---------- Toast ---------- */
+/* ---------- Toast (same pattern as Profile) ---------- */
 function Toast({ toast, onClose }) {
   if (!toast) return null;
   const colors =
@@ -52,7 +51,7 @@ function Toast({ toast, onClose }) {
   );
 }
 
-/* ---------- Confirm Dialog ---------- */
+/* ---------- Confirm Dialog (identical to Profile) ---------- */
 function ConfirmDialog({
   open,
   title = "Confirm",
@@ -92,145 +91,6 @@ function ConfirmDialog({
             {loading ? "Deleting..." : confirmLabel}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Change Password Dialog ---------- */
-function ChangePasswordDialog({ open, onClose, onSuccess, apiBase, authHeader, showToast }) {
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNew, setConfirmNew] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [errMsg, setErrMsg] = useState("");
-
-  // reset when opened/closed
-  useEffect(() => {
-    if (!open) {
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmNew("");
-      setErrMsg("");
-      setSubmitting(false);
-    }
-  }, [open]);
-
-  function validate() {
-    if (!currentPassword.trim() || !newPassword.trim() || !confirmNew.trim()) {
-      setErrMsg("All fields are required");
-      return false;
-    }
-    if (newPassword.length < 8) {
-      setErrMsg("New password must be at least 8 characters");
-      return false;
-    }
-    if (newPassword !== confirmNew) {
-      setErrMsg("New passwords do not match");
-      return false;
-    }
-    setErrMsg("");
-    return true;
-  }
-
-  async function handleSubmit(e) {
-    e?.preventDefault();
-    if (!validate()) return;
-    setSubmitting(true);
-    try {
-      // Recommended dedicated endpoint for password change
-      const res = await fetch(`${apiBase}/users/me/password`, {
-        method: "PUT", // or PATCH/POST based on backend
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || data.message || "Failed to change password");
-      }
-      showToast?.("Password changed", "success");
-      onSuccess?.();
-      onClose?.();
-    } catch (err) {
-      setErrMsg(err.message || "Failed to change password");
-      showToast?.(err.message || "Failed to change password", "error");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm border border-gray-200">
-        <form onSubmit={handleSubmit}>
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Change password</h3>
-            <button type="button" onClick={onClose} className="p-1 rounded hover:bg-gray-50" title="Close">
-              <XMarkIcon className="h-5 w-5 text-gray-600" />
-            </button>
-          </div>
-
-          <div className="px-5 py-4 space-y-3">
-            {errMsg ? <p className="text-xs text-red-600">{errMsg}</p> : null}
-
-            <div>
-              <label className="text-xs text-gray-600">Current password</label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-800 focus:ring-gray-800"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-gray-600">New password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
-                autoComplete="new-password"
-                required
-                minLength={8}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-gray-600">Confirm new password</label>
-              <input
-                type="password"
-                value={confirmNew}
-                onChange={(e) => setConfirmNew(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
-                autoComplete="new-password"
-                required
-                minLength={8}
-              />
-            </div>
-          </div>
-
-          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-3 py-1.5 rounded-lg bg-btn text-white hover:bg-sky-800 disabled:opacity-50 text-sm"
-            >
-              {submitting ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );
@@ -283,9 +143,12 @@ function AccountSection({ showToast }) {
   const [err, setErr] = useState("");
 
   const [isUsernameEditing, setIsUsernameEditing] = useState(false);
-  const [changePwdOpen, setChangePwdOpen] = useState(false);
 
-  const lastSavedRef = useRef({ email: "", username: "" });
+  // snapshot for Cancel restore (mirrors Profile)
+  const lastSavedRef = useRef({
+    email: "",
+    username: "",
+  });
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
@@ -304,7 +167,10 @@ function AccountSection({ showToast }) {
         const user = data.user || {};
         setEmail(user.email || "");
         setUsername(user.username || "");
-        lastSavedRef.current = { email: user.email || "", username: user.username || "" };
+        lastSavedRef.current = {
+          email: user.email || "",
+          username: user.username || "",
+        };
       } catch (e) {
         setErr(e.message);
       } finally {
@@ -313,6 +179,7 @@ function AccountSection({ showToast }) {
     })();
   }, [token]);
 
+  // Save only username (email is not edited here); re-fetch to refresh snapshot like Profile
   async function saveUsername() {
     setLoading(true);
     setErr("");
@@ -326,12 +193,18 @@ function AccountSection({ showToast }) {
         const errRes = await res.json().catch(() => ({}));
         throw new Error(errRes.error || "Failed to save username");
       }
+
       const resUpdated = await fetch(`${API_BASE}/auth/me`, { headers: authHeader });
       const dataUpdated = await resUpdated.json();
       const user = dataUpdated.user || {};
       setEmail(user.email || "");
       setUsername(user.username || "");
-      lastSavedRef.current = { email: user.email || "", username: user.username || "" };
+
+      lastSavedRef.current = {
+        email: user.email || "",
+        username: user.username || "",
+      };
+
       setIsUsernameEditing(false);
       showToast?.("Account updated", "success");
     } catch (e) {
@@ -361,15 +234,15 @@ function AccountSection({ showToast }) {
 
   return (
     <Section title="Account" icon={<KeyIcon className="h-5 w-5 text-gray-700" />}>
-      {/* Email copy-only row */}
+      {/* Email: read-only with Copy button (no edit) */}
       <CopyRow
         label="Email"
         value={email}
-        icon={<InboxArrowDownIcon className="h-5 w-5 text-gray-600" />}
+        icon={<EnvelopeIcon className="h-5 w-5 text-gray-600" />}
         onCopy={copyEmail}
       />
 
-      {/* Username editable row */}
+      {/* Username: editable, like Profile’s EditableRow */}
       <EditableRow
         label="Username"
         value={username}
@@ -383,25 +256,10 @@ function AccountSection({ showToast }) {
       />
 
       <div className="mt-3 flex gap-2">
-        <Button variant="outline" onClick={() => setChangePwdOpen(true)} icon={<KeyOutlineIcon className="h-5 w-5" />}>
+        <Button variant="outline" onClick={() => showToast?.("Change password clicked", "info")}>
           Change password
         </Button>
       </div>
-
-      {/* Change Password Modal */}
-      <ChangePasswordDialog
-        open={changePwdOpen}
-        onClose={() => setChangePwdOpen(false)}
-        onSuccess={() => {
-          // Optional: some backends invalidate token after password change
-          // showToast("Password changed. Please sign in again.", "success");
-          // localStorage.removeItem("token");
-          // window.location.href = "/";
-        }}
-        apiBase={API_BASE}
-        authHeader={authHeader}
-        showToast={showToast}
-      />
     </Section>
   );
 }
@@ -503,7 +361,7 @@ function HelpAboutSection() {
   );
 }
 
-/* ---------------- Danger Zone ---------------- */
+/* ---------------- Danger Zone (mirrors Profile) ---------------- */
 function DangerZone({ showToast }) {
   const navigate = useNavigate();
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;

@@ -32,7 +32,7 @@ function initialAvatarFromLetter(letter) {
 }
 
 // Label for deleted/missing user
-const DELETED_USER_LABEL = "User deleted the account";
+const DELETED_USER_LABEL = "User account deactivated";
 
 // Avatar resolver for contacts:
 // - Groups: one-letter initials
@@ -380,7 +380,7 @@ export default function Contacts() {
         {!loading && !err && (
           <ul className="space-y-2 pb-24">
             {filtered.map((c) => (
-              <ContactRow key={c.id} contact={c} />
+              <ContactRow key={c.id} contact={c} myId={myId} />
             ))}
             {filtered.length === 0 && <EmptyState tab={activeTab} query={query} />}
           </ul>
@@ -391,7 +391,12 @@ export default function Contacts() {
   );
 }
 
-function ContactRow({ contact }) {
+function ContactRow({ contact, myId }) {
+  const otherUser = useMemo(() => {
+    if (contact._raw.isGroup) return null;
+    return contact._raw.participants.find(p => p && String(p._id) !== String(myId));
+  }, [contact, myId]);
+
   return (
     <li
       className="group bg-white border border-gray-200 rounded-2xl p-3 hover:border-indigo-200 transition cursor-pointer"
@@ -417,7 +422,9 @@ function ContactRow({ contact }) {
               <StarIcon className="h-4 w-4 text-amber-500" aria-label="Favourite" />
             )}
           </div>
-          <p className="text-sm text-gray-600 truncate">{toStr(contact.lastSeen) || "—"}</p>
+          {otherUser?.email && (
+            <p className="text-sm text-gray-500 truncate">{toStr(otherUser.email)}</p>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ActionMini title="Message">

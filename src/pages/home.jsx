@@ -27,7 +27,7 @@ function initialAvatarFromLetter(letter) {
 }
 
 // Label to show for deleted or missing users
-const DELETED_USER_LABEL = "User deleted the account";
+const DELETED_USER_LABEL = "User account deactivated";
 
 // Resolve avatar:
 // - Groups: single-letter initials

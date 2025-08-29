@@ -3,6 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
@@ -24,7 +25,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// GET /api/users/me
+/**
+ * GET /api/users/me
+ */
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -35,7 +38,10 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-// PUT /api/users/me
+/**
+ * PUT /api/users/me
+ * Update profile info
+ */
 router.put('/me', auth, async (req, res) => {
   try {
     const updates = req.body;
@@ -47,7 +53,41 @@ router.put('/me', auth, async (req, res) => {
   }
 });
 
-// POST /api/users/me/photo
+/**
+ * PUT /api/users/me/password
+ * Change password
+ */
+router.put('/me/password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password required' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Check old password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'Current password is incorrect' });
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Password change error' });
+  }
+});
+
+/**
+ * POST /api/users/me/photo
+ * Upload profile photo
+ */
 router.post('/me/photo', auth, upload.single('photo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -62,7 +102,10 @@ router.post('/me/photo', auth, upload.single('photo'), async (req, res) => {
   }
 });
 
-// DELETE /api/users/me/photo
+/**
+ * DELETE /api/users/me/photo
+ * Remove profile photo
+ */
 router.delete('/me/photo', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -71,7 +114,11 @@ router.delete('/me/photo', auth, async (req, res) => {
     if (user.photoUrl) {
       const filePath = path.join(__dirname, '..', user.photoUrl.replace(/^\//, ''));
       if (fs.existsSync(filePath)) {
-        try { fs.unlinkSync(filePath); } catch (e) { console.warn('Could not delete photo file:', e.message); }
+        try {
+          fs.unlinkSync(filePath);
+        } catch (e) {
+          console.warn('Could not delete photo file:', e.message);
+        }
       }
       user.photoUrl = '';
       await user.save();
@@ -82,7 +129,10 @@ router.delete('/me/photo', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/users/me
+/**
+ * DELETE /api/users/me
+ * Delete account
+ */
 router.delete('/me', auth, async (req, res) => {
   try {
     const deleted = await User.findByIdAndDelete(req.user.id);
