@@ -12,7 +12,7 @@ app.use(
     origin: [
       process.env.CLIENT_URL,       // your local frontend (http://localhost:5173)
       "http://localhost:5173",      // ensure local dev always works
-      "https://your-frontend.onrender.com", // deployed frontend (replace with actual Render frontend URL)
+      "https://connect-fronted.onrender.com/", // deployed frontend (replace with actual Render frontend URL)
     ].filter(Boolean), // removes any undefined
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
