@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/login';
 import Sidenav from './pages/Sidenav';
 import ProtectedRoute from './routes/ProtectedRoute';
-import Feed from './pages/home';
 import Chat from './pages/Chat';
 import { UserProvider } from './context/UserContext';
 
@@ -15,7 +14,6 @@ function App() {
           <Route path="/" element={<Login />} />
 
           {/* Public routes (you can protect them too if needed) */}
-          <Route path="/feed" element={<Feed />} />
           <Route path="/chat" element={<Chat />} />
 
           {/* Protected route */}
