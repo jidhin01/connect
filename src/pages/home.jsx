@@ -10,19 +10,17 @@ import {
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
-// String safety helpers
+// Helpers
 const toStr = (v) => (v == null ? "" : String(v));
 const lower = (v) =>
   typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase();
 
-// First letter (single initial) only
 function getInitial(name) {
   if (!name) return "U";
   const s = toStr(name).trim();
   return s ? s[0].toUpperCase() : "U";
 }
 
-// DiceBear Initials URL from a single letter
 function initialAvatarFromLetter(letter) {
   const l = getInitial(letter);
   return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
@@ -30,10 +28,8 @@ function initialAvatarFromLetter(letter) {
   )}`;
 }
 
-// Label to show for deleted or missing users
 const DELETED_USER_LABEL = "User account deactivated";
 
-// Resolve avatar
 function resolveAvatar(conversation, myId) {
   if (conversation?.isGroup) {
     const letter = getInitial(conversation?.groupName || "G");
@@ -51,7 +47,6 @@ function resolveAvatar(conversation, myId) {
   return initialAvatarFromLetter(letter);
 }
 
-// Title
 const formatTitle = (c, myId) => {
   if (c?.isGroup && c?.groupName) return toStr(c.groupName);
 
@@ -69,7 +64,6 @@ const formatTitle = (c, myId) => {
   );
 };
 
-// Last message preview
 const formatPreview = (c) => {
   const lm = c?.lastMessage;
   if (!lm) return "No messages yet";
@@ -107,15 +101,14 @@ export default function Home() {
   const myId =
     typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
-  // Reset on token change
+  // ✅ Hydrate username fast from localStorage (optimistic)
   useEffect(() => {
-    setChats([]);
-    setQuery("");
-    setErr("");
-    setLoading(true);
-  }, [token]);
+    const storedName =
+      typeof window !== "undefined" ? localStorage.getItem("username") : null;
+    if (storedName) setUsername(toStr(storedName));
+  }, []);
 
-  // Fetch current user
+  // Fetch current user (refresh)
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -127,6 +120,11 @@ export default function Home() {
         const data = await res.json();
         const user = data.user || {};
         setUsername(toStr(user.username || "U"));
+
+        // ✅ Save username for next fast load
+        if (typeof window !== "undefined" && user.username) {
+          localStorage.setItem("username", user.username);
+        }
       } catch {
         // ignore
       } finally {
