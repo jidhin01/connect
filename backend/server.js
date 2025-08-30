@@ -1,13 +1,14 @@
-// server.js
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const http = require("http");          // 👈 new
-const { Server } = require("socket.io"); // 👈 new
+const http = require("http");
+const { Server } = require("socket.io");
 require("dotenv").config();
 
 const app = express();
-const server = http.createServer(app); // 👈 use http server
+const server = http.createServer(app);
+
+// --- Socket.IO Setup ---
 const io = new Server(server, {
   cors: {
     origin: [
@@ -20,7 +21,10 @@ const io = new Server(server, {
   },
 });
 
-// Middleware
+// Make io available everywhere
+app.set("io", io);
+
+// --- Middleware ---
 app.use(
   cors({
     origin: [
@@ -35,7 +39,7 @@ app.use(
 );
 app.use(express.json());
 
-// Routes
+// --- Routes ---
 const authRoutes = require("./routes/auth");
 const conversationRoutes = require("./routes/conversation.routes");
 const messageRoutes = require("./routes/message.routes");
@@ -47,7 +51,7 @@ app.use("/api/messages", messageRoutes);
 // Health check
 app.get("/", (req, res) => res.send("✅ Backend is running"));
 
-// Socket.IO events
+// --- Socket.IO events ---
 io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
@@ -61,10 +65,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// Export io so routes can emit events
-module.exports = { io };
-
-// Start server after DB
+// --- Start server after DB ---
 const PORT = process.env.PORT || 4000;
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -81,3 +82,5 @@ mongoose
     console.error("❌ MongoDB connection error:", err.message);
     process.exit(1);
   });
+
+module.exports = app; // 👈 export app (with io attached)
