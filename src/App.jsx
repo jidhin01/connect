@@ -10,6 +10,7 @@ function App() {
     <UserProvider>
       <Router>
         <Routes>
+          
           {/* Public route */}
           <Route path="/" element={<Login />} />
 
