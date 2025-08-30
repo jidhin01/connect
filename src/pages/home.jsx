@@ -182,6 +182,11 @@ export default function Home() {
         });
 
         setChats(mapped);
+
+        // 👇 Join socket rooms
+        mapped.forEach((c) => {
+          socket.emit("joinConversation", c.id);
+        });
       } catch (e) {
         setErr(e.message);
       } finally {
@@ -194,6 +199,12 @@ export default function Home() {
   // ✅ Listen for new messages via socket.io
   useEffect(() => {
     if (!socket) return;
+
+    // rejoin on reconnect
+    socket.on("connect", () => {
+      console.log("✅ Socket connected, rejoining rooms...");
+      chats.forEach((c) => socket.emit("joinConversation", c.id));
+    });
 
     socket.on("newMessage", (m) => {
       setChats((prev) => {
@@ -221,8 +232,9 @@ export default function Home() {
 
     return () => {
       socket.off("newMessage");
+      socket.off("connect");
     };
-  }, []);
+  }, [chats]);
 
   const filtered = useMemo(() => {
     const q = lower(query.trim());

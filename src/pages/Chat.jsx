@@ -139,24 +139,27 @@ export default function Chat() {
   }, [conversationId]);
 
   // Setup socket.io listeners
-// inside useEffect for socket
-useEffect(() => {
-  if (!conversationId || !myId) return;
+  useEffect(() => {
+    if (!conversationId || !myId) return;
 
-  socket.emit("joinConversation", conversationId); // 👈 join the room
+    socket.emit("joinConversation", conversationId); // 👈 join the room
 
-  socket.on("newMessage", (m) => {
-    // only update if message belongs to this conversation
-    if (m?.conversation?._id === conversationId) {
-      const mapped = mapServerMsg(m, myId);
-      setMessages((prev) => [...prev, mapped]);
-    }
-  });
+    socket.on("newMessage", (m) => {
+      if (m?.conversation?._id === conversationId) {
+        const mapped = mapServerMsg(m, myId);
 
-  return () => {
-    socket.off("newMessage");
-  };
-}, [conversationId, myId]);
+        // ✅ prevent duplicates
+        setMessages((prev) => {
+          if (prev.some((msg) => msg.id === mapped.id)) return prev;
+          return [...prev, mapped];
+        });
+      }
+    });
+
+    return () => {
+      socket.off("newMessage");
+    };
+  }, [conversationId, myId]);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -224,7 +227,6 @@ useEffect(() => {
       setInput("");
       setShowEmojiPicker(false);
 
-      // Normal API call (backend will emit socket event)
       const res = await fetch(`${API_BASE}/messages`, {
         method: "POST",
         headers: {
