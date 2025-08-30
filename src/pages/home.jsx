@@ -5,10 +5,17 @@ import {
   UserGroupIcon,
   ChatBubbleOvalLeftIcon,
 } from "@heroicons/react/24/outline";
+import { io } from "socket.io-client"; // 👈 added
 
 // ✅ Correct env var
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
+
+// 👇 socket singleton
+const socket = io(BACKEND_URL, {
+  transports: ["websocket"],
+  withCredentials: true,
+});
 
 // Helpers
 const toStr = (v) => (v == null ? "" : String(v));
@@ -101,14 +108,14 @@ export default function Home() {
   const myId =
     typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
-  // ✅ Hydrate username fast from localStorage (optimistic)
+  // ✅ Hydrate username fast from localStorage
   useEffect(() => {
     const storedName =
       typeof window !== "undefined" ? localStorage.getItem("username") : null;
     if (storedName) setUsername(toStr(storedName));
   }, []);
 
-  // Fetch current user (refresh)
+  // Fetch current user
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -121,7 +128,6 @@ export default function Home() {
         const user = data.user || {};
         setUsername(toStr(user.username || "U"));
 
-        // ✅ Save username for next fast load
         if (typeof window !== "undefined" && user.username) {
           localStorage.setItem("username", user.username);
         }
@@ -184,6 +190,39 @@ export default function Home() {
     }
     load();
   }, [token, myId]);
+
+  // ✅ Listen for new messages via socket.io
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("newMessage", (m) => {
+      setChats((prev) => {
+        const idx = prev.findIndex((c) => c.id === m.conversation._id);
+        if (idx === -1) return prev;
+
+        const updated = [...prev];
+        const conv = { ...updated[idx] };
+
+        conv.lastMessage = `${m.sender?.username || m.sender?.email || "User"}: ${
+          m.text
+        }`;
+        conv.time = new Date(m.createdAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        // move to top
+        updated.splice(idx, 1);
+        updated.unshift(conv);
+
+        return updated;
+      });
+    });
+
+    return () => {
+      socket.off("newMessage");
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const q = lower(query.trim());
