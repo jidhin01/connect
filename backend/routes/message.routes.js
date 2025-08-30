@@ -33,14 +33,23 @@ router.post('/', auth, async (req, res) => {
     convo.lastMessage = msg._id;
     await convo.save();
 
-    // Return populated message
+    // Populate sender + conversation
     const populated = await Message.findById(msg._id)
       .populate('sender', '_id username email')
       .populate('conversation', 'participants');
 
+    // ---- 🔥 Emit message in real-time via Socket.IO ----
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      // Emit to all participants of this conversation
+      convo.participants.forEach((participantId) => {
+        io.to(participantId.toString()).emit('newMessage', populated);
+      });
+    }
+
     return res.status(201).json(populated);
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error creating message:", err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -68,7 +77,7 @@ router.get('/:conversationId', auth, async (req, res) => {
 
     return res.json({ messages: msgs });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error fetching messages:", err);
     return res.status(500).json({ error: 'Server error' });
   }
 });

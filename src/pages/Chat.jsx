@@ -2,39 +2,37 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
   FaceSmileIcon,
-  PhotoIcon,
   PaperAirplaneIcon,
   CheckIcon,
   CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
+import { io } from "socket.io-client"; // 👈 NEW
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
+// 👇 setup socket connection (singleton)
+const socket = io(BACKEND_URL, {
+  transports: ["websocket"],
+  withCredentials: true,
+});
+
 // Safety helpers
 const toStr = (v) => (v == null ? "" : String(v));
 
-// Utility to extract first letter initial
 function getInitial(name) {
   const s = toStr(name).trim();
   return s ? s[0].toUpperCase() : "U";
 }
 
-// Deleted/missing label
 const DELETED_USER_LABEL = "User account deactivated";
 
-// Decide if a "user-like" value represents a deleted/missing user
 function isDeletedOrMissingUser(user) {
   if (!user) return true;
-  // Consider deleted/missing if no username/email present
   const hasName = toStr(user.username || user.email).trim().length > 0;
   return !hasName;
 }
 
-// Resolve avatar URL for a user object (sender/partner)
-// - If deleted/missing -> use /nouser.png
-// - Else if photoUrl -> BACKEND_URL + photoUrl
-// - Else -> DiceBear Initials with first letter of username/email
 function resolveAvatar(user) {
   if (isDeletedOrMissingUser(user)) return "/nouser.png";
   if (user.photoUrl) return `${BACKEND_URL}${user.photoUrl}`;
@@ -43,13 +41,11 @@ function resolveAvatar(user) {
   return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(letter)}`;
 }
 
-// Safe display name for users
 function resolveDisplayName(user, fallback = "User") {
   if (isDeletedOrMissingUser(user)) return DELETED_USER_LABEL;
   return user.username || user.email || fallback;
 }
 
-// Format server message
 function mapServerMsg(m, myId) {
   const mine = String(m?.sender?._id || m?.sender) === String(myId);
   const senderUser = typeof m?.sender === "object" ? m.sender : { _id: m?.sender };
@@ -115,8 +111,6 @@ export default function Chat() {
     );
   }
 
-  // Partner header: derive avatar using the conversationName as a stand-in identity.
-  // If the name equals the deleted label, show /nouser.png; else initials from the name.
   const partner = useMemo(() => {
     const isDeleted = toStr(conversationName).trim() === DELETED_USER_LABEL;
     const avatar = isDeleted
@@ -138,10 +132,27 @@ export default function Chat() {
     }
   }, [messages]);
 
+  // Load old messages once
   useEffect(() => {
     loadMessages();
     // eslint-disable-next-line
   }, [conversationId]);
+
+  // Setup socket.io listeners
+  useEffect(() => {
+    if (!conversationId || !myId) return;
+
+    socket.emit("joinConversation", conversationId);
+
+    socket.on("newMessage", (m) => {
+      const mapped = mapServerMsg(m, myId);
+      setMessages((prev) => [...prev, mapped]);
+    });
+
+    return () => {
+      socket.off("newMessage");
+    };
+  }, [conversationId, myId]);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -209,6 +220,7 @@ export default function Chat() {
       setInput("");
       setShowEmojiPicker(false);
 
+      // Normal API call (backend will emit socket event)
       const res = await fetch(`${API_BASE}/messages`, {
         method: "POST",
         headers: {
@@ -304,9 +316,6 @@ export default function Chat() {
           <div className="bg-white border rounded-3xl border-gray-200 px-4 py-3">
             <div className="flex items-end gap-2 relative">
               <div className="flex items-center gap-1 z-10">
-                {/* <IconBtn title="Photo">
-                  <PhotoIcon className="h-6 w-6 text-gray-700" />
-                </IconBtn> */}
                 <IconBtn
                   title="Emoji"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -420,20 +429,6 @@ function MessageBubble({ msg, showAvatar }) {
             {msg.outgoing && <StatusIcon status={msg.status} />}
           </div>
         </div>
-        {msg.reactions?.length > 0 && (
-          <div className={`mt-1 flex gap-1 ${msg.outgoing ? "justify-end" : "justify-start"}`}>
-            {msg.reactions.map((r, i) => (
-              <button
-                key={i}
-                className="px-2 py-0.5 text-xs rounded-full bg-white border border-gray-200 hover:bg-gray-50"
-                title={`${r.emoji} ${r.count}`}
-              >
-                <span className="mr-1">{r.emoji}</span>
-                <span className="text-gray-700">{r.count}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </li>
   );
