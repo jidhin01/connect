@@ -6,13 +6,12 @@
 
 
 
-# Features
+### Features
 
-- Responsive layout, works well on both Mobile and Desktop
-- Dark mode support. Click buttons to toggle dark mode and light mode.
-- Clear React components and tailwind styling.
-- Exact sections that a developer needs to showcase their skills.
-- Clear call to actions.
+- Real-time direct messaging powered by WebSockets for instant delivery.
+- Secure user authentication with JWT and role-based profile management.
+- Optimized APIs and MongoDB queries for low-latency, reliable performance.
+- Scalable, production-ready architecture deployed on Render.
 
 # Pages
 
@@ -44,32 +43,34 @@ I've kept the pages as simple as possible. Only the required sections are includ
 
 
 
-# Tech Stack
+### Tech Stack
 
-The website is built in my favourite Tech Stack and deployed on [Vercel](https://vercel.com)
 
-- [Next.js](https://nodejs.org) for building React Components.
-- [tailwindcss](https://tailwindcss.com) for styling.
-- [React Rough Notation](https://roughnotation.com) for Hero section highlighting.
-- [Render](https://render.com) for deployments and CI/CD.
+- **[Node.js](https://nodejs.org)**: Server-side JavaScript runtime.
+- **[Express](https://expressjs.com)**: Web framework for building APIs.
+- **[MongoDB Atlas](https://www.mongodb.com/atlas)**: Cloud-hosted NoSQL database.
+- **[JWT](https://jwt.io)**: JSON Web Tokens for secure authentication.
+- **[Multer](https://github.com/expressjs/multer)**: Middleware for handling file uploads.
+- **[WebSockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)**: Enables real-time 
 
-# Usage
+### Usage
 
-- Clone the repository using `git clone https://github.com/manuarora700/simple-developer-portfolio-website.git`
-- Install all the modules by using `npm i` or `npm install` or `yarn`
-- Run the local development server by using `npm run dev` or `yarn dev`
-- Make the required edits and deploy to YOUR GitHub repo for CI/CD.
+- Clone the repository using `git clone https://github.com/jidhin01/connect.git`
+- Install all dependencies by running `npm install` or `yarn install`
+- Set up environment variables (e.g., MongoDB Atlas URI, JWT secret) in a `.env` file
+- Run the local development server using `npm run dev` or `yarn dev`
+- Make necessary edits and push to your GitHub repository for CI/CD
 
-# Deployment
+### Deployment
 
-Deployment can be done in 3 easy steps.
+Deployment can be done in 3 easy steps:
 
-- Login to [Vercel](https://vercel.com) or signup for an account if you don't have one.
-- Create a `New Project` and select YOUR GitHub repository of the portfolio project.
-- Wait for Vercel to deploy your project to production.
+- Log in to [Render](https://render.com) or sign up for an account if you don't have one.
+- Create a new **Web Service** and select your GitHub repository for the Connect Messaging App.
+- Configure environment variables (e.g., MongoDB Atlas URI, JWT secret) in Render's dashboard and deploy your project to production.
 
 # License
 
-This template is completely open source and free to use. Use it for client projects or your own portfolio project. Give me credits at the footer (If you wish, it'll help me a lot :)).
+This template is completely open source and free to use. Use it for client projects or your own portfolio project. Give me credits at the footer (If you wish).
 
 
