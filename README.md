@@ -50,7 +50,6 @@ I've kept the pages as simple as possible. Only the required sections are includ
 - **[Express](https://expressjs.com)**: Web framework for building APIs.
 - **[MongoDB Atlas](https://www.mongodb.com/atlas)**: Cloud-hosted NoSQL database.
 - **[JWT](https://jwt.io)**: JSON Web Tokens for secure authentication.
-- **[Multer](https://github.com/expressjs/multer)**: Middleware for handling file uploads.
 - **[WebSockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)**: Enables real-time 
 
 ### Usage
