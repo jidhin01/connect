@@ -43,10 +43,12 @@ app.use(express.json());
 const authRoutes = require("./routes/auth");
 const conversationRoutes = require("./routes/conversation.routes");
 const messageRoutes = require("./routes/message.routes");
+const userRoutes = require("./routes/user.routes"); // 👈 NEW
 
 app.use("/api/auth", authRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/users", userRoutes); // 👈 NEW
 
 // Health check
 app.get("/", (req, res) => res.send("✅ Backend is running"));

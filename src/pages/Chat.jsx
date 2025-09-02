@@ -145,15 +145,35 @@ export default function Chat() {
     socket.emit("joinConversation", conversationId); // 👈 join the room
 
     socket.on("newMessage", (m) => {
-      if (m?.conversation?._id === conversationId) {
-        const mapped = mapServerMsg(m, myId);
+      if (m?.conversation?._id !== conversationId) return;
 
-        // ✅ prevent duplicates
-        setMessages((prev) => {
-          if (prev.some((msg) => msg.id === mapped.id)) return prev;
-          return [...prev, mapped];
-        });
-      }
+      const mapped = mapServerMsg(m, myId);
+
+      setMessages((prev) => {
+        // Replace optimistic message if text matches and it's outgoing
+        const idx = prev.findIndex(
+          (msg) =>
+            msg.outgoing &&
+            msg.text === mapped.text &&
+            msg.id.startsWith("temp-")
+        );
+        if (idx !== -1) {
+          const copy = [...prev];
+          copy[idx] = mapped;
+          return copy;
+        }
+
+        // Update status if same id already exists
+        const idIdx = prev.findIndex((msg) => msg.id === mapped.id);
+        if (idIdx !== -1) {
+          const copy = [...prev];
+          copy[idIdx] = { ...copy[idIdx], status: mapped.status };
+          return copy;
+        }
+
+        // Otherwise append new
+        return [...prev, mapped];
+      });
     });
 
     return () => {
@@ -242,7 +262,10 @@ export default function Chat() {
       const saved = await res.json();
       const mapped = mapServerMsg(saved, myId);
 
-      setMessages((prev) => prev.map((m) => (m.id === tempId ? mapped : m)));
+      // Replace optimistic with real
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? mapped : m))
+      );
     } catch (e) {
       setErr(e.message);
     }
@@ -340,7 +363,10 @@ export default function Chat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") sendMessage();
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault(); // stop newline
+                      sendMessage();      // send on Enter
+                    }
                   }}
                   placeholder={`Message ${partner.name}`}
                   className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5 focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition"

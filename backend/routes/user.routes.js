@@ -40,14 +40,30 @@ router.get('/me', auth, async (req, res) => {
 
 /**
  * PUT /api/users/me
- * Update profile info
+ * Update profile info (username, email, etc.)
  */
 router.put('/me', auth, async (req, res) => {
   try {
-    const updates = req.body;
+    const { username, email, ...otherUpdates } = req.body;
+
+    // Ensure username/email are not already taken
+    if (username) {
+      const existing = await User.findOne({ username, _id: { $ne: req.user.id } });
+      if (existing) return res.status(400).json({ error: 'Username already taken' });
+    }
+    if (email) {
+      const existing = await User.findOne({ email, _id: { $ne: req.user.id } });
+      if (existing) return res.status(400).json({ error: 'Email already in use' });
+    }
+
+    const updates = { ...otherUpdates };
+    if (username) updates.username = username;
+    if (email) updates.email = email;
+
     const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('-password');
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ message: 'Profile updated', user });
+
+    res.json({ message: 'Profile updated successfully', user });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Server error' });
   }
