@@ -502,4 +502,5 @@ function EmptyState({ tab, query, onAddClick }) {
       <p className="text-sm text-gray-500">{msg}</p>
     </div>
   );
+  
 }
