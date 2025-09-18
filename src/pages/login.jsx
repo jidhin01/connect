@@ -52,7 +52,7 @@ function Login() {
         email,
         password,
       });
-      setMessage('Registration successful. Please sign in.');
+      setMessage('Registration successful. Please Log In.');
       setIsSignUpMode(false);
     } catch (err) {
       setMessage('Registration failed. Try again.');
@@ -186,7 +186,7 @@ function Login() {
                 <span className="ml-2">Loading...</span>
               </div>
             ) : (
-              isSignUpMode ? 'Sign Up' : 'Sign In'
+              isSignUpMode ? 'Sign Up' : 'Log In'
             )}
           </button>
 
@@ -196,7 +196,7 @@ function Login() {
             disabled={loading}
             className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg"
           >
-            {isSignUpMode ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
+            {isSignUpMode ? 'Already have an account? w' : 'Need an account? Sign Up'}
           </button>
         </form>
       </div>

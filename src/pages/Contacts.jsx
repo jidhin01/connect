@@ -16,7 +16,8 @@ const tabs = [{ key: "all", label: "All" }];
 
 // String safety helpers
 const toStr = (v) => (v == null ? "" : String(v));
-const lower = (v) => (typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase());
+const lower = (v) =>
+  typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase();
 
 // First letter only
 function getInitial(name) {
@@ -28,16 +29,15 @@ function getInitial(name) {
 // DiceBear Initials (single-letter seed)
 function initialAvatarFromLetter(letter) {
   const l = getInitial(letter);
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(l)}`;
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+    l
+  )}`;
 }
 
 // Label for deleted/missing user
 const DELETED_USER_LABEL = "User account deactivated";
 
-// Avatar resolver for contacts:
-// - Groups: one-letter initials
-// - Direct: if other user missing or lacks username/email -> use /nouser.png
-//           else use one-letter initials from username/email
+// Avatar resolver
 function resolveContactAvatar(conversation, myId) {
   if (conversation?.isGroup) {
     const letter = getInitial(conversation?.groupName || "G");
@@ -45,7 +45,8 @@ function resolveContactAvatar(conversation, myId) {
   }
   const otherUser =
     conversation?.participants?.find(
-      (p) => p && typeof p === "object" && p._id && String(p._id) !== String(myId)
+      (p) =>
+        p && typeof p === "object" && p._id && String(p._id) !== String(myId)
     ) || null;
 
   if (!otherUser || (!otherUser.username && !otherUser.email)) {
@@ -55,7 +56,7 @@ function resolveContactAvatar(conversation, myId) {
   return initialAvatarFromLetter(letter);
 }
 
-// Title: groups, direct, and deleted user handling
+// Title formatter
 const formatTitle = (c, myId) => {
   if (c?.isGroup && c?.groupName) return toStr(c.groupName);
   const parts = Array.isArray(c?.participants) ? c.participants : [];
@@ -65,7 +66,9 @@ const formatTitle = (c, myId) => {
   if (!otherPopulated || (!otherPopulated.username && !otherPopulated.email)) {
     return DELETED_USER_LABEL;
   }
-  return toStr(otherPopulated.username || otherPopulated.email || otherPopulated._id);
+  return toStr(
+    otherPopulated.username || otherPopulated.email || otherPopulated._id
+  );
 };
 
 const inferStatus = (c) => {
@@ -85,7 +88,6 @@ export default function Contacts() {
   const [showModal, setShowModal] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [toast, setToast] = useState(null);
-
   const [username, setUsername] = useState("");
 
   const token =
@@ -93,7 +95,6 @@ export default function Contacts() {
   const myId =
     typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
-  // Reset on session change
   useEffect(() => {
     setContacts([]);
     setQuery("");
@@ -101,7 +102,6 @@ export default function Contacts() {
     setLoading(true);
   }, [token]);
 
-  // Fetch current user's profile for header initial avatar
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -114,7 +114,6 @@ export default function Contacts() {
         const user = data.user || {};
         setUsername(toStr(user.username || "U"));
       } catch (e) {
-        // silent fail
       } finally {
         setLoading(false);
       }
@@ -128,7 +127,6 @@ export default function Contacts() {
       return;
     }
     reloadConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function reloadConversations() {
@@ -142,11 +140,9 @@ export default function Contacts() {
         throw new Error(j.error || "Failed to fetch conversations");
       }
       const data = await res.json();
-
       const mapped = (data.conversations || []).map((c) => {
         const title = formatTitle(c, myId);
         const isDeletedPeer = title === DELETED_USER_LABEL && !c?.isGroup;
-
         return {
           id: c._id,
           name: toStr(title),
@@ -155,12 +151,13 @@ export default function Contacts() {
           lastSeen:
             inferStatus(c) === "online"
               ? "Online"
-              : `Last active ${new Date(c?.updatedAt || c?.createdAt).toLocaleString()}`,
+              : `Last active ${new Date(
+                  c?.updatedAt || c?.createdAt
+                ).toLocaleString()}`,
           favorite: false,
           _raw: c,
         };
       });
-
       setContacts(mapped);
     } catch (e) {
       setErr(e.message);
@@ -219,7 +216,10 @@ export default function Contacts() {
       await reloadConversations();
       setShowModal(false);
       setEmailInput("");
-      showToast(`Added or found chat with ${user.username || user.email}.`, "success");
+      showToast(
+        `Added or found chat with ${user.username || user.email}.`,
+        "success"
+      );
     } catch (e) {
       showToast(e.message || "Failed to add contact", "error");
     }
@@ -240,7 +240,6 @@ export default function Contacts() {
     );
   }, [query, contacts]);
 
-  // Header top letter initial avatar
   const topLetter = getInitial(username);
   const effectivePhotoSrc = initialAvatarFromLetter(topLetter);
 
@@ -257,8 +256,12 @@ export default function Contacts() {
               : "bg-gray-100 text-gray-800"
           }`}
         >
-          {toast.type === "success" && <CheckCircleIcon className="h-5 w-5" />}
-          {toast.type === "error" && <ExclamationCircleIcon className="h-5 w-5" />}
+          {toast.type === "success" && (
+            <CheckCircleIcon className="h-5 w-5" />
+          )}
+          {toast.type === "error" && (
+            <ExclamationCircleIcon className="h-5 w-5" />
+          )}
           <span>{toast.msg}</span>
         </div>
       )}
@@ -310,10 +313,11 @@ export default function Contacts() {
               />
               <div>
                 <h1 className="text-lg font-semibold">Contacts</h1>
-                <p className="text-xs text-gray-500">Find people and start chats</p>
+                <p className="text-xs text-gray-500">
+                  Find people and start chats
+                </p>
               </div>
             </div>
-            
           </div>
 
           {/* Search + Actions */}
@@ -329,6 +333,7 @@ export default function Contacts() {
                   className="w-full pl-10 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition"
                 />
               </div>
+              {/* First Add button */}
               <button
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50"
                 onClick={() => setShowModal(true)}
@@ -371,7 +376,9 @@ export default function Contacts() {
         </div>
 
         {loading && (
-          <div className="py-8 text-sm text-gray-600">Loading conversations...</div>
+          <div className="py-8 text-sm text-gray-600">
+            Loading conversations...
+          </div>
         )}
         {!!err && !loading && (
           <div className="py-8 text-sm text-red-600">Error: {err}</div>
@@ -382,7 +389,13 @@ export default function Contacts() {
             {filtered.map((c) => (
               <ContactRow key={c.id} contact={c} myId={myId} />
             ))}
-            {filtered.length === 0 && <EmptyState tab={activeTab} query={query} />}
+            {filtered.length === 0 && (
+              <EmptyState
+                tab={activeTab}
+                query={query}
+                onAddClick={() => setShowModal(true)}
+              />
+            )}
           </ul>
         )}
       </main>
@@ -394,7 +407,9 @@ export default function Contacts() {
 function ContactRow({ contact, myId }) {
   const otherUser = useMemo(() => {
     if (contact._raw.isGroup) return null;
-    return contact._raw.participants.find(p => p && String(p._id) !== String(myId));
+    return contact._raw.participants.find(
+      (p) => p && String(p._id) !== String(myId)
+    );
   }, [contact, myId]);
 
   return (
@@ -419,11 +434,16 @@ function ContactRow({ contact, myId }) {
           <div className="flex items-center gap-2">
             <p className="truncate font-medium">{toStr(contact.name)}</p>
             {contact.favorite && (
-              <StarIcon className="h-4 w-4 text-amber-500" aria-label="Favourite" />
+              <StarIcon
+                className="h-4 w-4 text-amber-500"
+                aria-label="Favourite"
+              />
             )}
           </div>
           {otherUser?.email && (
-            <p className="text-sm text-gray-500 truncate">{toStr(otherUser.email)}</p>
+            <p className="text-sm text-gray-500 truncate">
+              {toStr(otherUser.email)}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -463,7 +483,7 @@ function ActionMini({ children, title }) {
   );
 }
 
-function EmptyState({ tab, query }) {
+function EmptyState({ tab, query, onAddClick }) {
   const msg =
     tab === "invites"
       ? "No pending invites. Share your QR or link to invite contacts."
@@ -472,11 +492,14 @@ function EmptyState({ tab, query }) {
       : "No contacts yet. Add or invite someone to get started.";
   return (
     <div className="text-center py-16">
-      <div className="mx-auto h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
+      <button
+        onClick={onAddClick}
+        className="mx-auto h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center mb-4 hover:bg-indigo-100"
+      >
         <UserPlusIcon className="h-6 w-6 text-btn" />
-      </div>
+      </button>
       <h3 className="text-lg text-white font-semibold mb-1">Nothing here</h3>
-      <p className="text-sm text-gray-300">{msg}</p>
+      <p className="text-sm text-gray-500">{msg}</p>
     </div>
   );
 }

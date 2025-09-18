@@ -429,7 +429,7 @@ function EmptyState({ query, activeTab }) {
       <div className="mx-auto h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
         <ChatBubbleOvalLeftIcon className="h-6 w-6 text-btn" />
       </div>
-      <h3 className="text-lg text-gray-700 font-semibold mb-1">Nothing here</h3>
+      <h3 className="text-lg text-white font-semibold mb-1">Nothing here</h3>
       <p className="text-sm text-gray-500">{msg}</p>
     </div>
   );
