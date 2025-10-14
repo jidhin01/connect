@@ -196,7 +196,7 @@ function Login() {
             disabled={loading}
             className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg"
           >
-            {isSignUpMode ? 'Already have an account? w' : 'Need an account? Sign Up'}
+            {isSignUpMode ? 'Already have an account? ' : 'Need an account? Sign Up'}
           </button>
         </form>
       </div>

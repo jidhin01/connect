@@ -43,12 +43,14 @@ app.use(express.json());
 const authRoutes = require("./routes/auth");
 const conversationRoutes = require("./routes/conversation.routes");
 const messageRoutes = require("./routes/message.routes");
-const userRoutes = require("./routes/user.routes"); // 👈 NEW
+const userRoutes = require("./routes/user.routes");
+const chatbotRoutes = require("./routes/chatbot.routes"); // 👈 ADDED
 
 app.use("/api/auth", authRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
-app.use("/api/users", userRoutes); // 👈 NEW
+app.use("/api/users", userRoutes);
+app.use("/api/chatbot", chatbotRoutes); // 👈 ADDED: Mount the Chatbot Router
 
 // Health check
 app.get("/", (req, res) => res.send("✅ Backend is running"));
@@ -85,4 +87,4 @@ mongoose
     process.exit(1);
   });
 
-module.exports = app; // 👈 export app (with io attached)
+module.exports = app;

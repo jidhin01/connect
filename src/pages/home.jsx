@@ -5,7 +5,7 @@ import {
   UserGroupIcon,
   ChatBubbleOvalLeftIcon,
 } from "@heroicons/react/24/outline";
-import { io } from "socket.io-client"; // 👈 added
+import { io } from "socket.io-client";
 
 // ✅ Correct env var
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -92,6 +92,35 @@ const inferStatus = (c) => {
   if (minAgo < 180) return "recent";
   return "offline";
 };
+
+// ====================================================================
+// 💡 NEW: AI CHATBOT PROFILE DEFINITION
+// ====================================================================
+
+// Unique, client-side ID for the AI chat. Doesn't conflict with MongoDB IDs.
+const AI_CHAT_ID = "ai-chatbot-genius-gemini"; 
+const AI_CHAT_NAME = "Genius AI";
+const AI_LAST_MESSAGE_DEFAULT = "Hello! Ask me anything casual.";
+// Using a distinct bot avatar for better UX
+const AI_AVATAR = "/chatbot.png"; 
+
+const AI_CHATBOT_PROFILE = {
+  id: AI_CHAT_ID,
+  name: AI_CHAT_NAME,
+  avatar: AI_AVATAR,
+  status: "online", 
+  lastMessage: AI_LAST_MESSAGE_DEFAULT,
+  time: new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  }),
+  unread: 0,
+  pinned: true, // Optional: Pin the bot to the top
+  muted: false,
+  type: "ai", 
+  _raw: { isAI: true, aiChatId: AI_CHAT_ID },
+};
+
 
 const tabs = [{ key: "all", label: "All" }];
 
@@ -180,13 +209,25 @@ export default function Home() {
             _raw: c,
           };
         });
+        
+        // ====================================================================
+        // 💡 NEW: CHATBOT INJECTION AND SORTING LOGIC
+        // ====================================================================
+        
+        // 1. Separate AI and non-AI chats
+        const nonAiChats = mapped.filter(c => c.id !== AI_CHAT_ID);
+        
+        // 2. Add the AI profile to the start of the list
+        // This ensures the AI chat is always visible near the top
+        const chatsWithAI = [AI_CHATBOT_PROFILE, ...nonAiChats];
 
-        setChats(mapped);
+        setChats(chatsWithAI);
 
-        // 👇 Join socket rooms
-        mapped.forEach((c) => {
+        // 👇 Join socket rooms (The AI chat doesn't need a socket room)
+        nonAiChats.forEach((c) => {
           socket.emit("joinConversation", c.id);
         });
+        
       } catch (e) {
         setErr(e.message);
       } finally {
@@ -203,14 +244,16 @@ export default function Home() {
     // rejoin on reconnect
     socket.on("connect", () => {
       console.log("✅ Socket connected, rejoining rooms...");
-      chats.forEach((c) => socket.emit("joinConversation", c.id));
+      // Filter out the AI chat ID before trying to join a socket room
+      chats.filter(c => c.id !== AI_CHAT_ID).forEach((c) => socket.emit("joinConversation", c.id));
     });
 
     socket.on("newMessage", (m) => {
       setChats((prev) => {
         const idx = prev.findIndex((c) => c.id === m.conversation._id);
         if (idx === -1) return prev;
-
+        
+        // ... (Rest of your socket message update logic remains the same)
         const updated = [...prev];
         const conv = { ...updated[idx] };
 
@@ -247,7 +290,10 @@ export default function Home() {
         (activeTab === "unread" && Number(c?.unread) > 0) ||
         (activeTab === "pinned" && !!c?.pinned) ||
         (activeTab === "mentions" && toStr(c?.lastMessage).includes("@"));
-      return matchesQuery && matchesTab;
+        
+      // Also ensure the AI chat is included if the tab is 'all' or it matches the query
+      const isAIChat = c.id === AI_CHAT_ID;
+      return (matchesQuery && matchesTab) || isAIChat;
     });
   }, [query, activeTab, chats]);
 
@@ -255,6 +301,7 @@ export default function Home() {
   const effectivePhotoSrc = initialAvatarFromLetter(topLetter);
 
   return (
+    // ... (rest of your component rendering remains the same)
     <div className="h-screen bg-seco text-gray-900">
       {/* Top Bar */}
       <header className="sticky top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
@@ -343,14 +390,26 @@ export default function Home() {
 
 // Chat list item
 function ChatListItem({ chat }) {
+  // 💡 NEW: Determine the redirection path and stored data
+  const isAI = chat.id === AI_CHAT_ID;
+  
+  const handleClick = () => {
+      // Store the conversation ID/Name
+      localStorage.setItem("activeConversationId", chat.id);
+      localStorage.setItem("activeConversationName", chat.name);
+      
+      // CRUCIAL FLAG: Store whether this is the AI chat
+      localStorage.setItem("isAIChat", isAI ? "true" : "false"); 
+      
+      // Redirect to the chat page
+      window.location.href = "/chat";
+  };
+  
   return (
     <li
       className="group bg-white border border-gray-200 rounded-2xl p-3 hover:border-indigo-200 transition cursor-pointer"
-      onClick={() => {
-        localStorage.setItem("activeConversationId", chat.id);
-        localStorage.setItem("activeConversationName", chat.name);
-        window.location.href = "/chat";
-      }}
+      // Replace the old onClick
+      onClick={handleClick} 
     >
       <div className="flex items-center gap-3">
         <div className="relative">
@@ -366,6 +425,12 @@ function ChatListItem({ chat }) {
             <p className="truncate font-medium">{toStr(chat.name)}</p>
             {chat.type === "group" && (
               <UserGroupIcon className="h-4 w-4 text-gray-400" />
+            )}
+            {/* Show a distinct icon for the AI chat */}
+            {chat.type === "ai" && (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-indigo-500">
+                <path d="M11.75 3a.75.75 0 0 0-.75.75v3.5h-3.5a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 .75.75h3.5v3.5a.75.75 0 0 0 .75.75h3.5a.75.75 0 0 0 .75-.75v-3.5h3.5a.75.75 0 0 0 .75-.75v-3.5a.75.75 0 0 0-.75-.75h-3.5v-3.5a.75.75 0 0 0-.75-.75h-3.5Z" />
+              </svg>
             )}
             {chat.pinned && <PinIcon className="h-4 w-4 text-indigo-500" />}
             {chat.muted && <BellSlashIcon className="h-4 w-4 text-gray-400" />}
@@ -386,6 +451,8 @@ function ChatListItem({ chat }) {
     </li>
   );
 }
+
+// ... (Rest of the helper components remain the same)
 
 function StatusDot({ status }) {
   const map = {

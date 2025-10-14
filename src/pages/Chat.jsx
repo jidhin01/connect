@@ -6,7 +6,7 @@ import {
   CheckIcon,
   CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
-import { io } from "socket.io-client"; // 👈 NEW
+import { io } from "socket.io-client";
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
@@ -16,6 +16,14 @@ const socket = io(BACKEND_URL, {
   transports: ["websocket"],
   withCredentials: true,
 });
+
+// ====================================================================
+// 💡 AI CHATBOT CONSTANTS (Must match Home.jsx)
+// ====================================================================
+const AI_CHAT_ID = "ai-chatbot-genius-gemini";
+const AI_CHAT_NAME = "Genius AI";
+const AI_AVATAR = "chatbot.png";
+
 
 // Safety helpers
 const toStr = (v) => (v == null ? "" : String(v));
@@ -68,6 +76,36 @@ function mapServerMsg(m, myId) {
   };
 }
 
+// ====================================================================
+// 💡 AI Message Mapping Helper
+// ====================================================================
+function mapAiMsg(text, isOutgoing, myId, myName) {
+    const senderId = isOutgoing ? myId : AI_CHAT_ID;
+    const senderName = isOutgoing ? myName : AI_CHAT_NAME;
+    const senderAvatar = isOutgoing 
+      ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(getInitial(myName))}`
+      : AI_AVATAR;
+
+    return {
+        // Use a client-side ID for AI messages
+        id: `local-${Date.now()}-${Math.random()}`,
+        author: {
+            id: senderId,
+            name: senderName,
+            avatar: senderAvatar,
+        },
+        text: text,
+        time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+        }),
+        outgoing: isOutgoing,
+        status: isOutgoing ? "sent" : "read", // Status for AI is always 'read' or 'sent' immediately
+        reactions: [],
+    };
+}
+
+
 export default function Chat() {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -81,12 +119,22 @@ export default function Chat() {
       : null;
   const myId =
     typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+  const myName = 
+    typeof window !== "undefined" ? localStorage.getItem("username") : "Me"; // Get myName for optimistic updates
+  
+  // 💡 NEW: Check the AI flag from localStorage
+  const isAIChat =
+    typeof window !== "undefined"
+      ? localStorage.getItem("isAIChat") === "true"
+      : false;
+
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(true);
+  // Set loading to false initially for AI chat to show welcome message immediately
+  const [loading, setLoading] = useState(isAIChat ? false : true); 
   const listRef = useRef(null);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -112,6 +160,15 @@ export default function Chat() {
   }
 
   const partner = useMemo(() => {
+    // 💡 UPDATE: Use static AI details if it's the AI chat
+    if (isAIChat) {
+      return {
+        name: AI_CHAT_NAME,
+        avatar: AI_AVATAR,
+        status: "online",
+      };
+    }
+
     const isDeleted = toStr(conversationName).trim() === DELETED_USER_LABEL;
     const avatar = isDeleted
       ? "/nouser.png"
@@ -123,7 +180,7 @@ export default function Chat() {
       avatar,
       status: "online",
     };
-  }, [conversationName]);
+  }, [conversationName, isAIChat]);
 
   useEffect(() => {
     const listElement = listRef.current;
@@ -132,15 +189,24 @@ export default function Chat() {
     }
   }, [messages]);
 
-  // Load old messages once
+  // Load old messages once / Initialize AI chat
   useEffect(() => {
-    loadMessages();
+    // 💡 UPDATE: Skip loading messages from API for AI chat
+    if (!isAIChat) {
+      loadMessages();
+    } else {
+      // For AI chat, start with a welcome message
+      const welcome = mapAiMsg("Hey there! I'm Genius AI. Ask me anything casual!", false, myId, myName);
+      setMessages([welcome]);
+      setLoading(false);
+    }
     // eslint-disable-next-line
-  }, [conversationId]);
+  }, [conversationId, isAIChat]);
 
-  // Setup socket.io listeners
+  // Setup socket.io listeners (Only for REAL chats)
   useEffect(() => {
-    if (!conversationId || !myId) return;
+    // 💡 SKIP socket setup for AI
+    if (isAIChat || !conversationId || !myId) return; 
 
     socket.emit("joinConversation", conversationId); // 👈 join the room
 
@@ -179,7 +245,7 @@ export default function Chat() {
     return () => {
       socket.off("newMessage");
     };
-  }, [conversationId, myId]);
+  }, [conversationId, myId, isAIChat]);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -197,6 +263,7 @@ export default function Chat() {
   }, [showEmojiPicker]);
 
   async function loadMessages() {
+    // 💡 This function only runs for REAL chats now
     try {
       setLoading(true);
       setErr("");
@@ -220,54 +287,111 @@ export default function Chat() {
   }
 
   async function sendMessage() {
-    if (!input.trim()) return;
+    if (!input.trim() || isTyping) return;
     const text = input.trim();
+    setInput("");
+    setShowEmojiPicker(false);
 
-    try {
-      const tempId = `temp-${Date.now()}`;
-      const optimistic = {
-        id: tempId,
-        author: {
-          id: myId,
-          name: "Me",
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-            getInitial("Me")
-          )}`,
-        },
-        text,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        outgoing: true,
-        status: "sent",
-        reactions: [],
-      };
-      setMessages((prev) => [...prev, optimistic]);
-      setInput("");
-      setShowEmojiPicker(false);
+    // ====================================================================
+    // 💡 CORE UPDATE: SENDING LOGIC BRANCH
+    // ====================================================================
 
-      const res = await fetch(`${API_BASE}/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ conversationId, text }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "Failed to send");
-      }
-      const saved = await res.json();
-      const mapped = mapServerMsg(saved, myId);
+    if (isAIChat) {
+        // --- AI CHAT LOGIC ---
+        const userMsg = mapAiMsg(text, true, myId, myName);
+        // Optimistic update: add user's message
+        setMessages((prev) => [...prev, userMsg]);
+        setIsTyping(true); // Show typing indicator
 
-      // Replace optimistic with real
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? mapped : m))
-      );
-    } catch (e) {
-      setErr(e.message);
+        try {
+            // 1. Prepare the conversation history for the API
+            const history = messages
+                // Filter out any messages with empty text before slicing
+                .filter(m => m.text && m.text.trim().length > 0)
+                .slice(-10) // Use the last 10 valid messages for context
+                .map(m => ({
+                    // API roles must be 'user' (for human) or 'model' (for AI response)
+                    role: m.outgoing ? 'user' : 'model', 
+                    parts: [{ text: m.text }]
+                }));
+            
+            // 2. Add the NEW user message to the history
+            const currentContents = [
+                ...history,
+                { role: 'user', parts: [{ text: text }] }
+            ];
+
+            const res = await fetch(`${API_BASE}/chatbot/ask`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`, 
+                    "Content-Type": "application/json",
+                },
+                // 💡 CRITICAL FIX: Send the full conversation array
+                body: JSON.stringify({ contents: currentContents }), 
+            });
+
+            if (!res.ok) {
+                const j = await res.json().catch(() => ({}));
+                throw new Error(j.error || "AI failed to respond");
+            }
+
+            const data = await res.json();
+            const aiReply = data.reply;
+            const aiMsg = mapAiMsg(aiReply, false, myId, myName);
+
+            // Add AI response
+            setMessages((prev) => [...prev, aiMsg]);
+        } catch (e) {
+            setErr(e.message);
+            
+            // Revert optimistic update and display error on the last message
+            setMessages(prev => prev.map(m => m.id === userMsg.id ? {
+                ...m,
+                // Update text to include the error so the user knows
+                text: `${m.text} [Error: AI failed to respond]`,
+                status: 'failed'
+            } : m));
+        } finally {
+            setIsTyping(false);
+        }
+
+    } else {
+        // --- REAL CHAT LOGIC ---
+        try {
+            const tempId = `temp-${Date.now()}`;
+            const optimistic = mapServerMsg({ 
+                _id: tempId, 
+                text, 
+                sender: { _id: myId, username: myName }, // Use myName here
+                createdAt: new Date(),
+                status: 'sent'
+            }, myId);
+            
+            setMessages((prev) => [...prev, optimistic]);
+
+            const res = await fetch(`${API_BASE}/messages`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ conversationId, text }),
+            });
+            if (!res.ok) {
+                const j = await res.json().catch(() => ({}));
+                throw new Error(j.error || "Failed to send");
+            }
+            const saved = await res.json();
+            const mapped = mapServerMsg(saved, myId);
+
+            // Replace optimistic with real
+            setMessages((prev) =>
+                prev.map((m) => (m.id === tempId ? mapped : m))
+            );
+        } catch (e) {
+            setErr(e.message);
+        }
     }
   }
 
@@ -296,7 +420,8 @@ export default function Chat() {
               <div>
                 <p className="font-semibold leading-5">{partner.name}</p>
                 <p className="text-xs text-gray-500">
-                  {partner.status === "online" ? "Online" : "Last seen recently"}
+                  {/* 💡 UPDATE: Show 'AI Assistant' status */}
+                  {isAIChat ? "AI Assistant" : (partner.status === "online" ? "Online" : "Last seen recently")}
                 </p>
               </div>
             </div>
@@ -309,7 +434,8 @@ export default function Chat() {
         className="mx-auto max-w-4xl w-full px-4 flex-1 overflow-y-auto py-4 no-scrollbar"
         ref={listRef}
       >
-        <DayDivider label="Today" />
+        {/* 💡 UPDATE: Change divider label for AI chat */}
+        <DayDivider label={isAIChat ? "AI Chat Start" : "Today"} /> 
 
         {loading && <div className="text-sm text-gray-600 py-2">Loading…</div>}
         {!!err && !loading && (
@@ -327,6 +453,7 @@ export default function Chat() {
             })}
         </ul>
 
+        {/* 💡 UPDATE: Only show typing for AI if isTyping is true */}
         {isTyping && (
           <div className="mt-4 flex items-end gap-2">
             <img
