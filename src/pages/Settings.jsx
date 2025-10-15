@@ -262,10 +262,10 @@ export default function Settings() {
 
       <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
         <AccountSection showToast={showToast} />
-        <PrivacySecuritySection />
+        {/* <PrivacySecuritySection />
         <ChatsSection />
         <NotificationsSection />
-        <HelpAboutSection />
+        <HelpAboutSection /> */}
         <DangerZone showToast={showToast} />
       </main>
 
