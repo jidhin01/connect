@@ -51,7 +51,7 @@ The UI is designed for minimalism and clarity, focusing on core functionality.
 ![Contacts Screenshot](https://github.com/user-attachments/assets/f19b8456-41e6-4ae0-a934-43015d0b1c7d)
 
 #### Settings
-![Settings Screenshot](https://github.com/user-attachments/assets/353e10fb-1b35-4be9-981f-769f3b535d07)
+<img width="1680" height="869" alt="Screenshot 2025-10-15 at 14 29 25" src="https://github.com/user-attachments/assets/b836963f-23a5-4259-aac9-c31a1c5073fc" />
 
 ---
 
@@ -96,5 +96,5 @@ This project is open source and free to use.
 
 ---
 
-*Project by [Your Name/GitHub Profile Link]*
+*Project by [JIdhin/[GitHub Profile Link](https://github.com/jidhin01)]*
 *Give credits at the footer if you wish.*
