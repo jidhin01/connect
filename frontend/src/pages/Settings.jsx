@@ -38,8 +38,8 @@ function Toast({ toast, onClose }) {
     toast.type === "success"
       ? "bg-green-100 text-green-800"
       : toast.type === "error"
-      ? "bg-red-100 text-red-800"
-      : "bg-gray-100 text-gray-800";
+        ? "bg-red-100 text-red-800"
+        : "bg-gray-100 text-gray-800";
   return (
     <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg text-sm ${colors}`}>
       <div className="flex items-center gap-2">
@@ -278,6 +278,7 @@ export default function Settings() {
 function AccountSection({ showToast }) {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -304,6 +305,7 @@ function AccountSection({ showToast }) {
         const user = data.user || {};
         setEmail(user.email || "");
         setUsername(user.username || "");
+        setPhotoUrl(user.photoUrl || "");
         lastSavedRef.current = { email: user.email || "", username: user.username || "" };
       } catch (e) {
         setErr(e.message);
@@ -361,6 +363,21 @@ function AccountSection({ showToast }) {
 
   return (
     <Section title="Account" icon={<KeyIcon className="h-5 w-5 text-gray-700" />}>
+      {/* Avatar Preview */}
+      <div className="flex justify-center mb-4">
+        {photoUrl ? (
+          <img
+            src={`${API_BASE.replace('/api', '')}${photoUrl}`}
+            alt="Profile"
+            className="h-20 w-20 rounded-full object-cover border border-gray-200"
+          />
+        ) : (
+          <div className="h-20 w-20 rounded-full bg-indigo-50 flex items-center justify-center text-2xl font-bold text-indigo-300">
+            {(username || email || "U")[0].toUpperCase()}
+          </div>
+        )}
+      </div>
+
       {/* Email copy-only row */}
       <CopyRow
         label="Email"
@@ -687,15 +704,13 @@ function Toggle({ label, description, enabled, onChange, iconOn, iconOff }) {
       </div>
       <button
         onClick={onChange}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-          enabled ? "bg-btn" : "bg-gray-300"
-        }`}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${enabled ? "bg-btn" : "bg-gray-300"
+          }`}
         aria-pressed={enabled}
       >
         <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
-            enabled ? "translate-x-5" : "translate-x-1"
-          }`}
+          className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${enabled ? "translate-x-5" : "translate-x-1"
+            }`}
         />
       </button>
     </div>
@@ -742,12 +757,12 @@ function Button({ children, variant = "solid", icon = null, onClick }) {
     variant === "solid"
       ? "bg-btn text-white hover:bg-indigo-700"
       : variant === "outline"
-      ? "border border-gray-200 text-gray-800 hover:bg-gray-50"
-      : variant === "warn"
-      ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-      : variant === "danger"
-      ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
-      : "";
+        ? "border border-gray-200 text-gray-800 hover:bg-gray-50"
+        : variant === "warn"
+          ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+          : variant === "danger"
+            ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+            : "";
   return (
     <button className={`${base} ${styles}`} onClick={onClick}>
       {icon}

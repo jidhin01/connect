@@ -59,23 +59,47 @@ The UI is designed for minimalism and clarity, focusing on core functionality.
 
 1.  **Clone the Repository:**
     ```bash
-    git clone [https://github.com/jidhin01/connect.git](https://github.com/jidhin01/connect.git)
+    git clone https://github.com/jidhin01/connect.git
     cd connect
     ```
-2.  **Install Dependencies** (Ensure both frontend and backend dependencies are installed):
-    ```bash
-    # Run in the root directory and the backend subdirectory if separated
-    npm install
-    # or
-    yarn install
+
+2.  **Project Structure:**
     ```
-3.  **Setup Environment Variables:** Create a `.env` file in your **backend directory** with your:
-    * `MONGO_URI`
-    * `JWT_SECRET`
-    * `GEMINI_API_KEY`
-4.  **Run the Server:**
+    connect/
+    ├── frontend/    # React + Vite frontend
+    ├── backend/     # Node.js + Express backend
+    ├── .gitignore
+    └── README.md
+    ```
+
+3.  **Install Dependencies:**
     ```bash
-    npm run dev  # Starts both frontend (Vite) and backend (Nodemon)
+    # Install frontend dependencies
+    cd frontend
+    npm install
+
+    # Install backend dependencies
+    cd ../backend
+    npm install
+    ```
+
+4.  **Setup Environment Variables:**
+    - Create a `.env` file in the **frontend** directory with:
+      * `VITE_API_URL` (backend API URL)
+    - Create a `.env` file in the **backend** directory with:
+      * `MONGO_URI`
+      * `JWT_SECRET`
+      * `GEMINI_API_KEY`
+
+5.  **Run the Application:**
+    ```bash
+    # Terminal 1 - Start Backend
+    cd backend
+    npm run dev
+
+    # Terminal 2 - Start Frontend
+    cd frontend
+    npm run dev
     ```
 
 ---

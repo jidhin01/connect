@@ -32,7 +32,7 @@ function Login() {
       localStorage.setItem('username', user.username || '');
       localStorage.setItem('email', user.email || '');
 
-      setUser({ id: user.id, username: user.username, email: user.email });
+      setUser({ id: user.id, username: user.username, email: user.email, photoUrl: user.photoUrl || '' });
       navigate('/logined');
     } catch (err) {
       setMessage('Invalid credentials or server error');
@@ -84,15 +84,14 @@ function Login() {
       </div>
 
       <div className="bg-white/5 backdrop-blur-3xl z-10 p-8 rounded-xl shadow-2xl w-full max-w-md">
-        <div className="text-6xl text-white font-bitcount text-center mb-5">connect</div>
+        <div className="text-6xl text-white font-bitcount text-center mb-5">Connect</div>
 
         {message && (
           <div
-            className={`px-4 py-3 rounded-lg mb-4 ${
-              message.includes('successful')
-                ? 'bg-green-100 border border-green-400 text-green-700'
-                : 'bg-red-100 border border-red-400 text-red-700'
-            }`}
+            className={`px-4 py-3 rounded-lg mb-4 ${message.includes('successful')
+              ? 'bg-green-100 border border-green-400 text-green-700'
+              : 'bg-red-100 border border-red-400 text-red-700'
+              }`}
           >
             {message}
           </div>

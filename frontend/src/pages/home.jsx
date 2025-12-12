@@ -6,6 +6,7 @@ import {
   ChatBubbleOvalLeftIcon,
 } from "@heroicons/react/24/outline";
 import { io } from "socket.io-client";
+import ChatWindow from "../components/ChatWindow";
 
 // ✅ Correct env var
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -50,6 +51,8 @@ function resolveAvatar(conversation, myId) {
   if (!otherUser || (!otherUser.username && !otherUser.email)) {
     return "/nouser.png";
   }
+  if (otherUser.photoUrl) return `${BACKEND_URL}${otherUser.photoUrl}`;
+
   const letter = getInitial(otherUser?.username || otherUser?.email || "U");
   return initialAvatarFromLetter(letter);
 }
@@ -98,17 +101,17 @@ const inferStatus = (c) => {
 // ====================================================================
 
 // Unique, client-side ID for the AI chat. Doesn't conflict with MongoDB IDs.
-const AI_CHAT_ID = "ai-chatbot-genius-gemini"; 
+const AI_CHAT_ID = "ai-chatbot-genius-gemini";
 const AI_CHAT_NAME = "Genius AI";
 const AI_LAST_MESSAGE_DEFAULT = "Hello! Ask me anything casual.";
 // Using a distinct bot avatar for better UX
-const AI_AVATAR = "/chatbot.png"; 
+const AI_AVATAR = "/chatbot.png";
 
 const AI_CHATBOT_PROFILE = {
   id: AI_CHAT_ID,
   name: AI_CHAT_NAME,
   avatar: AI_AVATAR,
-  status: "online", 
+  status: "online",
   lastMessage: AI_LAST_MESSAGE_DEFAULT,
   time: new Date().toLocaleTimeString([], {
     hour: "2-digit",
@@ -117,20 +120,24 @@ const AI_CHATBOT_PROFILE = {
   unread: 0,
   pinned: true, // Optional: Pin the bot to the top
   muted: false,
-  type: "ai", 
+  type: "ai",
   _raw: { isAI: true, aiChatId: AI_CHAT_ID },
 };
 
 
 const tabs = [{ key: "all", label: "All" }];
 
-export default function Home() {
+export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [chats, setChats] = useState([]);
   const [username, setUsername] = useState("");
+  const [userPhoto, setUserPhoto] = useState(null);
+
+  // 💡 NEW: Selected Chat State
+  const [selectedChat, setSelectedChat] = useState(null);
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -156,6 +163,7 @@ export default function Home() {
         const data = await res.json();
         const user = data.user || {};
         setUsername(toStr(user.username || "U"));
+        setUserPhoto(user.photoUrl || null);
 
         if (typeof window !== "undefined" && user.username) {
           localStorage.setItem("username", user.username);
@@ -209,14 +217,14 @@ export default function Home() {
             _raw: c,
           };
         });
-        
+
         // ====================================================================
         // 💡 NEW: CHATBOT INJECTION AND SORTING LOGIC
         // ====================================================================
-        
+
         // 1. Separate AI and non-AI chats
         const nonAiChats = mapped.filter(c => c.id !== AI_CHAT_ID);
-        
+
         // 2. Add the AI profile to the start of the list
         // This ensures the AI chat is always visible near the top
         const chatsWithAI = [AI_CHATBOT_PROFILE, ...nonAiChats];
@@ -227,7 +235,7 @@ export default function Home() {
         nonAiChats.forEach((c) => {
           socket.emit("joinConversation", c.id);
         });
-        
+
       } catch (e) {
         setErr(e.message);
       } finally {
@@ -241,9 +249,9 @@ export default function Home() {
   useEffect(() => {
     if (!socket) return;
 
-    // rejoin on reconnect
-    socket.on("connect", () => {
-      console.log("✅ Socket connected, rejoining rooms...");
+    // rejoin on reConnect
+    socket.on("Connect", () => {
+      console.log("✅ Socket Connected, rejoining rooms...");
       // Filter out the AI chat ID before trying to join a socket room
       chats.filter(c => c.id !== AI_CHAT_ID).forEach((c) => socket.emit("joinConversation", c.id));
     });
@@ -252,14 +260,13 @@ export default function Home() {
       setChats((prev) => {
         const idx = prev.findIndex((c) => c.id === m.conversation._id);
         if (idx === -1) return prev;
-        
+
         // ... (Rest of your socket message update logic remains the same)
         const updated = [...prev];
         const conv = { ...updated[idx] };
 
-        conv.lastMessage = `${m.sender?.username || m.sender?.email || "User"}: ${
-          m.text
-        }`;
+        conv.lastMessage = `${m.sender?.username || m.sender?.email || "User"}: ${m.text
+          }`;
         conv.time = new Date(m.createdAt).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -275,7 +282,7 @@ export default function Home() {
 
     return () => {
       socket.off("newMessage");
-      socket.off("connect");
+      socket.off("Connect");
     };
   }, [chats]);
 
@@ -290,7 +297,7 @@ export default function Home() {
         (activeTab === "unread" && Number(c?.unread) > 0) ||
         (activeTab === "pinned" && !!c?.pinned) ||
         (activeTab === "mentions" && toStr(c?.lastMessage).includes("@"));
-        
+
       // Also ensure the AI chat is included if the tab is 'all' or it matches the query
       const isAIChat = c.id === AI_CHAT_ID;
       return (matchesQuery && matchesTab) || isAIChat;
@@ -298,151 +305,196 @@ export default function Home() {
   }, [query, activeTab, chats]);
 
   const topLetter = getInitial(username);
-  const effectivePhotoSrc = initialAvatarFromLetter(topLetter);
+  const effectivePhotoSrc = userPhoto
+    ? `${BACKEND_URL}${userPhoto}`
+    : initialAvatarFromLetter(topLetter);
+
+  // Toggle Chat
+  const handleChatSelect = (chat) => {
+    if (selectedChat?.id === chat.id) return; // Already open
+    setSelectedChat(chat);
+    if (setSidebarCollapsed) setSidebarCollapsed(true);
+
+    // Also save to localStorage for persistence if page refresh
+    localStorage.setItem("activeConversationId", chat.id);
+    localStorage.setItem("activeConversationName", chat.name);
+    localStorage.setItem("activeConversationAvatar", chat.avatar);
+    localStorage.setItem("isAIChat", chat.id === AI_CHAT_ID ? "true" : "false");
+  };
+
+  const handleCloseChat = () => {
+    setSelectedChat(null);
+    if (setSidebarCollapsed) setSidebarCollapsed(false);
+  };
 
   return (
-    // ... (rest of your component rendering remains the same)
-    <div className="h-screen bg-seco text-gray-900">
-      {/* Top Bar */}
-      <header className="sticky top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-4xl px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <img
-                alt={username || "me"}
-                src={effectivePhotoSrc}
-                className="h-10 w-10 rounded-full ring-2 ring-indigo-100 object-cover"
-              />
-              <div>
-                <h1 className="text-lg font-semibold">Chats</h1>
-                <p className="text-xs text-gray-500">All conversations</p>
-              </div>
-            </div>
-          </div>
+    <div className="h-full bg-seco text-gray-900 flex overflow-hidden">
 
-          {/* Search */}
-          <div className="pb-3">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search people"
-                  className="w-full pl-10 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition"
-                />
+      {/* Left Side: List */}
+      <div className={`flex flex-col h-full bg-seco transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r border-gray-200
+        ${selectedChat ? 'w-full md:w-72 lg:w-80 hidden md:flex' : 'w-full max-w-2xl mx-auto'}`}>
+
+        {/* Top Bar for List */}
+        <header className={`sticky top-0 z-10 bg-seco ${!selectedChat ? 'rounded-3xl border-b border-gray-200 mt-4 mx-4 bg-white' : 'px-4 pt-4'}`}>
+          <div className={`${!selectedChat ? 'px-4' : ''}`}>
+            <div className={`flex items-center justify-between ${!selectedChat ? 'h-16' : 'h-12 mb-2'}`}>
+              <div className="flex items-center gap-3">
+                {!selectedChat && (
+                  <img
+                    alt={username || "me"}
+                    src={effectivePhotoSrc}
+                    className="h-10 w-10 rounded-full ring-2 ring-indigo-100 object-cover"
+                  />
+                )}
+                <div>
+                  <h1 className="text-lg font-semibold">{!selectedChat ? 'Chats' : 'Messages'}</h1>
+                  {!selectedChat && <p className="text-xs text-gray-500">All conversations</p>}
+                </div>
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
-              {tabs.map((t) => {
-                const active = activeTab === t.key;
-                return (
-                  <button
-                    key={t.key}
-                    onClick={() => setActiveTab(t.key)}
-                    className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition ${
-                      active
+            {/* Search */}
+            <div className={`pb-3 ${!selectedChat ? '' : ''}`}>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search"
+                    className="w-full pl-10 pr-3 py-2 rounded-xl border border-gray-200 bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
+                {tabs.map((t) => {
+                  const active = activeTab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => setActiveTab(t.key)}
+                      className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition ${active
                         ? "bg-btn text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                );
-              })}
+                        }`}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
+        </header>
+
+        {/* List Content */}
+        <div className={`flex-1 overflow-y-auto px-4 ${!selectedChat ? 'max-w-4xl mx-auto w-full' : ''}`}>
+          <div className="flex items-center justify-between pt-4 pb-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+              {selectedChat ? 'Recent' : 'Conversations'}
+            </span>
+          </div>
+
+          {loading && (
+            <div className="py-8 text-sm text-gray-600">Loading chats...</div>
+          )}
+          {!!err && !loading && (
+            <div className="py-8 text-sm text-red-600">Error: {err}</div>
+          )}
+
+          {!loading && !err && (
+            <ul className="space-y-2 pb-24">
+              {filtered.map((chat) => (
+                <ChatListItem
+                  key={chat.id}
+                  chat={chat}
+                  onClick={() => handleChatSelect(chat)}
+                  isActive={selectedChat?.id === chat.id}
+                />
+              ))}
+              {filtered.length === 0 && (
+                <EmptyState query={query} activeTab={activeTab} />
+              )}
+            </ul>
+          )}
         </div>
-      </header>
+      </div>
 
-      {/* Content */}
-      <main className="mx-auto max-w-4xl px-4">
-        <div className="flex items-center justify-between pt-4 pb-2">
-          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
-            Conversations
-          </span>
+      {/* Right Side: Chat Window */}
+      {selectedChat ? (
+        <div className="w-full flex-1 flex flex-col h-[100dvh] md:h-full bg-gray-50 z-50 md:z-0 md:relative fixed inset-0 md:inset-auto">
+          <ChatWindow
+            conversationId={selectedChat.id}
+            conversationName={selectedChat.name}
+            conversationAvatar={selectedChat.avatar}
+            isAIChat={selectedChat.id === AI_CHAT_ID}
+            myId={myId}
+            myName={username}
+            onClose={handleCloseChat}
+          />
         </div>
+      ) : (
+        /* Placeholder for split view (optional, could be "Select a chat") */
+        <div className="hidden md:flex flex-1 items-center justify-center text-center p-8 bg-gray-800/50">
+          <div className="max-w-md">
+            <div className="mx-auto h-24 w-24 rounded-full bg-indigo-50 flex items-center justify-center mb-6">
+              <ChatBubbleOvalLeftIcon className="h-12 w-12 text-indigo-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Select a Conversation</h2>
+            <p className="text-gray-500">Choose a person from the list to start chatting or ask Genius AI for help.</p>
+          </div>
+        </div>
+      )}
 
-        {loading && (
-          <div className="py-8 text-sm text-gray-600">Loading chats...</div>
-        )}
-        {!!err && !loading && (
-          <div className="py-8 text-sm text-red-600">Error: {err}</div>
-        )}
-
-        {!loading && !err && (
-          <ul className="space-y-2 pb-28">
-            {filtered.map((chat) => (
-              <ChatListItem key={chat.id} chat={chat} />
-            ))}
-            {filtered.length === 0 && (
-              <EmptyState query={query} activeTab={activeTab} />
-            )}
-          </ul>
-        )}
-      </main>
     </div>
   );
 }
 
 // Chat list item
-function ChatListItem({ chat }) {
-  // 💡 NEW: Determine the redirection path and stored data
+function ChatListItem({ chat, onClick, isActive }) {
   const isAI = chat.id === AI_CHAT_ID;
-  
-  const handleClick = () => {
-      // Store the conversation ID/Name
-      localStorage.setItem("activeConversationId", chat.id);
-      localStorage.setItem("activeConversationName", chat.name);
-      
-      // CRUCIAL FLAG: Store whether this is the AI chat
-      localStorage.setItem("isAIChat", isAI ? "true" : "false"); 
-      
-      // Redirect to the chat page
-      window.location.href = "/chat";
-  };
-  
+
   return (
     <li
-      className="group bg-white border border-gray-200 rounded-2xl p-3 hover:border-indigo-200 transition cursor-pointer"
-      // Replace the old onClick
-      onClick={handleClick} 
+      className={`group border rounded-2xl px-3 py-2 hover:border-indigo-200 transition cursor-pointer
+        ${isActive ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-gray-200'}`}
+      onClick={onClick}
     >
       <div className="flex items-center gap-3">
         <div className="relative">
           <img
             src={chat.avatar}
             alt={toStr(chat.name)}
-            className="h-12 w-12 rounded-full object-cover"
+            className="h-10 w-10 rounded-full object-cover"
           />
           <StatusDot status={chat.status} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate font-medium">{toStr(chat.name)}</p>
+            <p className={`truncate text-sm font-medium ${isActive ? 'text-indigo-900' : 'text-gray-900'}`}>{toStr(chat.name)}</p>
             {chat.type === "group" && (
-              <UserGroupIcon className="h-4 w-4 text-gray-400" />
+              <UserGroupIcon className="h-3 w-3 text-gray-400" />
             )}
             {/* Show a distinct icon for the AI chat */}
             {chat.type === "ai" && (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-indigo-500">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3 text-indigo-500">
                 <path d="M11.75 3a.75.75 0 0 0-.75.75v3.5h-3.5a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 .75.75h3.5v3.5a.75.75 0 0 0 .75.75h3.5a.75.75 0 0 0 .75-.75v-3.5h3.5a.75.75 0 0 0 .75-.75v-3.5a.75.75 0 0 0-.75-.75h-3.5v-3.5a.75.75 0 0 0-.75-.75h-3.5Z" />
               </svg>
             )}
-            {chat.pinned && <PinIcon className="h-4 w-4 text-indigo-500" />}
-            {chat.muted && <BellSlashIcon className="h-4 w-4 text-gray-400" />}
+            {chat.pinned && <PinIcon className="h-3 w-3 text-indigo-500" />}
+            {chat.muted && <BellSlashIcon className="h-3 w-3 text-gray-400" />}
           </div>
-          <p className="text-sm text-gray-600 truncate">
+          <p className={`text-xs truncate ${isActive ? 'text-indigo-600/70' : 'text-gray-500'}`}>
             {toStr(chat.lastMessage)}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-xs text-gray-500">{chat.time}</span>
+          <span className="text-[10px] text-gray-400">{chat.time}</span>
           {chat.unread > 0 && (
-            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-btn text-white text-xs">
+            <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-btn text-white text-[10px]">
               {chat.unread}
             </span>
           )}
@@ -452,8 +504,6 @@ function ChatListItem({ chat }) {
   );
 }
 
-// ... (Rest of the helper components remain the same)
-
 function StatusDot({ status }) {
   const map = {
     online: "bg-emerald-500",
@@ -462,9 +512,8 @@ function StatusDot({ status }) {
   };
   return (
     <span
-      className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${
-        map[status] || "bg-gray-300"
-      }`}
+      className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${map[status] || "bg-gray-300"
+        }`}
       title={status}
     />
   );
@@ -487,16 +536,16 @@ function EmptyState({ query, activeTab }) {
   const msg = query
     ? `No chats match "${query}".`
     : activeTab === "unread"
-    ? "No unread chats"
-    : activeTab === "pinned"
-    ? "No pinned chats"
-    : "No conversations yet. Start a chat from Contacts!";
+      ? "No unread chats"
+      : activeTab === "pinned"
+        ? "No pinned chats"
+        : "No conversations yet. Start a chat from Contacts!";
   return (
     <div className="text-center py-16">
       <div className="mx-auto h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
         <ChatBubbleOvalLeftIcon className="h-6 w-6 text-btn" />
       </div>
-      <h3 className="text-lg text-white font-semibold mb-1">Nothing here</h3>
+      <h3 className="text-lg text-gray-900 font-semibold mb-1">Nothing here</h3>
       <p className="text-sm text-gray-500">{msg}</p>
     </div>
   );

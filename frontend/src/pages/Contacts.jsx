@@ -52,6 +52,8 @@ function resolveContactAvatar(conversation, myId) {
   if (!otherUser || (!otherUser.username && !otherUser.email)) {
     return "/nouser.png";
   }
+  if (otherUser.photoUrl) return `${BACKEND_URL}${otherUser.photoUrl}`;
+
   const letter = getInitial(otherUser?.username || otherUser?.email || "U");
   return initialAvatarFromLetter(letter);
 }
@@ -88,7 +90,9 @@ export default function Contacts() {
   const [showModal, setShowModal] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [toast, setToast] = useState(null);
+
   const [username, setUsername] = useState("");
+  const [userPhoto, setUserPhoto] = useState(null);
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -111,8 +115,10 @@ export default function Contacts() {
         });
         if (!res.ok) throw new Error("Could not fetch user");
         const data = await res.json();
+
         const user = data.user || {};
         setUsername(toStr(user.username || "U"));
+        setUserPhoto(user.photoUrl || null);
       } catch (e) {
       } finally {
         setLoading(false);
@@ -152,8 +158,8 @@ export default function Contacts() {
             inferStatus(c) === "online"
               ? "Online"
               : `Last active ${new Date(
-                  c?.updatedAt || c?.createdAt
-                ).toLocaleString()}`,
+                c?.updatedAt || c?.createdAt
+              ).toLocaleString()}`,
           favorite: false,
           _raw: c,
         };
@@ -241,20 +247,21 @@ export default function Contacts() {
   }, [query, contacts]);
 
   const topLetter = getInitial(username);
-  const effectivePhotoSrc = initialAvatarFromLetter(topLetter);
+  const effectivePhotoSrc = userPhoto
+    ? `${BACKEND_URL}${userPhoto}`
+    : initialAvatarFromLetter(topLetter);
 
   return (
     <div className="h-screen bg-seco text-gray-900 relative">
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm ${
-            toast.type === "success"
-              ? "bg-green-100 text-green-800"
-              : toast.type === "error"
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm ${toast.type === "success"
+            ? "bg-green-100 text-green-800"
+            : toast.type === "error"
               ? "bg-red-100 text-red-800"
               : "bg-gray-100 text-gray-800"
-          }`}
+            }`}
         >
           {toast.type === "success" && (
             <CheckCircleIcon className="h-5 w-5" />
@@ -352,11 +359,10 @@ export default function Contacts() {
                   <button
                     key={t.key}
                     onClick={() => setActiveTab(t.key)}
-                    className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition ${
-                      active
-                        ? "bg-btn text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition ${active
+                      ? "bg-btn text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
                   >
                     {t.label}
                   </button>
@@ -418,6 +424,7 @@ function ContactRow({ contact, myId }) {
       onClick={() => {
         localStorage.setItem("activeConversationId", contact.id);
         localStorage.setItem("activeConversationName", contact.name);
+        localStorage.setItem("activeConversationAvatar", contact.avatar);
         window.location.href = "/chat";
       }}
     >
@@ -464,9 +471,8 @@ function StatusDot({ status }) {
   };
   return (
     <span
-      className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${
-        map[status] || "bg-gray-300"
-      }`}
+      className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${map[status] || "bg-gray-300"
+        }`}
       title={status}
     />
   );
@@ -488,8 +494,8 @@ function EmptyState({ tab, query, onAddClick }) {
     tab === "invites"
       ? "No pending invites. Share your QR or link to invite contacts."
       : query
-      ? `No contacts match "${query}".`
-      : "No contacts yet. Add or invite someone to get started.";
+        ? `No contacts match "${query}".`
+        : "No contacts yet. Add or invite someone to get started.";
   return (
     <div className="text-center py-16">
       <button
@@ -502,5 +508,5 @@ function EmptyState({ tab, query, onAddClick }) {
       <p className="text-sm text-gray-500">{msg}</p>
     </div>
   );
-  
+
 }

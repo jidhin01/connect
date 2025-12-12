@@ -24,7 +24,6 @@ Thumbs.db
 
 # Coverage / build / caches
 coverage/
-dist/
 build/
 .next/
 .cache/
@@ -36,10 +35,14 @@ pids/
 *.seed
 
 # Local uploads (keep dirs, ignore files)
-uploads/**
-!uploads/
-!uploads/**/
-!uploads/.gitkeep
-!uploads/profile_photos/.gitkeep
+backend/uploads/**
+!backend/uploads/
+!backend/uploads/**/
+!backend/uploads/.gitkeep
+!backend/uploads/profile_photos/.gitkeep
+
+# Frontend build
+frontend/dist/
+
 # Misc
 *.swp

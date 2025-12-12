@@ -39,6 +39,10 @@ app.use(
 );
 app.use(express.json());
 
+// --- Static Files ---
+const path = require("path");
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 // --- Routes ---
 const authRoutes = require("./routes/auth");
 const conversationRoutes = require("./routes/conversation.routes");

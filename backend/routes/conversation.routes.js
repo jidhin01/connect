@@ -44,11 +44,11 @@ router.get('/', auth, async (req, res) => {
       .sort({ updatedAt: -1 })
       .populate({
         path: 'participants',
-        select: '_id username email',
+        select: '_id username email photoUrl',
       })
       .populate({
         path: 'lastMessage',
-        populate: { path: 'sender', select: '_id username email' },
+        populate: { path: 'sender', select: '_id username email photoUrl' },
       });
 
     return res.json({ conversations: convos });
