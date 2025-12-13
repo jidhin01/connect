@@ -4,21 +4,22 @@ import {
   BellSlashIcon,
   UserGroupIcon,
   ChatBubbleOvalLeftIcon,
+  CpuChipIcon, // Icon for AI
+  FunnelIcon,
 } from "@heroicons/react/24/outline";
 import { io } from "socket.io-client";
 import ChatWindow from "../components/ChatWindow";
 
-// ✅ Correct env var
+/* ---------- Config ---------- */
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
-// 👇 socket singleton
 const socket = io(BACKEND_URL, {
   transports: ["websocket"],
   withCredentials: true,
 });
 
-// Helpers
+/* ---------- Helpers ---------- */
 const toStr = (v) => (v == null ? "" : String(v));
 const lower = (v) =>
   typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase();
@@ -31,12 +32,11 @@ function getInitial(name) {
 
 function initialAvatarFromLetter(letter) {
   const l = getInitial(letter);
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-    l
-  )}`;
+  // Using dark background for initials to match theme
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(l)}&backgroundColor=171717&textColor=ffffff`;
 }
 
-const DELETED_USER_LABEL = "User account deactivated";
+const DELETED_USER_LABEL = "DEACTIVATED USER";
 
 function resolveAvatar(conversation, myId) {
   if (conversation?.isGroup) {
@@ -59,16 +59,13 @@ function resolveAvatar(conversation, myId) {
 
 const formatTitle = (c, myId) => {
   if (c?.isGroup && c?.groupName) return toStr(c.groupName);
-
   const parts = Array.isArray(c?.participants) ? c.participants : [];
   const otherPopulated = parts.find(
     (p) => p && typeof p === "object" && p._id && String(p._id) !== String(myId)
   );
-
   if (!otherPopulated || (!otherPopulated.username && !otherPopulated.email)) {
     return DELETED_USER_LABEL;
   }
-
   return toStr(
     otherPopulated.username || otherPopulated.email || otherPopulated._id
   );
@@ -77,13 +74,11 @@ const formatTitle = (c, myId) => {
 const formatPreview = (c) => {
   const lm = c?.lastMessage;
   if (!lm) return "No messages yet";
-
   const rawSender =
     lm?.sender?.username ||
     lm?.sender?.email ||
     (typeof lm?.sender === "string" ? lm.sender : null);
-
-  const sender = rawSender ? toStr(rawSender) : DELETED_USER_LABEL;
+  const sender = rawSender ? toStr(rawSender) : "SYSTEM";
   const text = lm?.text || "";
   return toStr(`${sender}: ${text}`);
 };
@@ -96,16 +91,11 @@ const inferStatus = (c) => {
   return "offline";
 };
 
-// ====================================================================
-// 💡 NEW: AI CHATBOT PROFILE DEFINITION
-// ====================================================================
-
-// Unique, client-side ID for the AI chat. Doesn't conflict with MongoDB IDs.
+/* ---------- AI Configuration ---------- */
 const AI_CHAT_ID = "ai-chatbot-genius-gemini";
-const AI_CHAT_NAME = "Genius AI";
-const AI_LAST_MESSAGE_DEFAULT = "Hello! Ask me anything casual.";
-// Using a distinct bot avatar for better UX
-const AI_AVATAR = "/chatbot.png";
+const AI_CHAT_NAME = "SYSTEM AI"; // Industrial naming
+const AI_LAST_MESSAGE_DEFAULT = "System ready. Awaiting query.";
+const AI_AVATAR = "/chatbot.png"; // Ensure this exists or use a fallback
 
 const AI_CHATBOT_PROFILE = {
   id: AI_CHAT_ID,
@@ -113,20 +103,21 @@ const AI_CHATBOT_PROFILE = {
   avatar: AI_AVATAR,
   status: "online",
   lastMessage: AI_LAST_MESSAGE_DEFAULT,
-  time: new Date().toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  }),
+  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   unread: 0,
-  pinned: true, // Optional: Pin the bot to the top
+  pinned: true,
   muted: false,
   type: "ai",
   _raw: { isAI: true, aiChatId: AI_CHAT_ID },
 };
 
+const tabs = [
+  { key: "all", label: "ALL" },
+  { key: "unread", label: "UNREAD" },
+  { key: "pinned", label: "PINNED" },
+];
 
-const tabs = [{ key: "all", label: "All" }];
-
+/* ---------- Main Component ---------- */
 export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -135,23 +126,18 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
   const [chats, setChats] = useState([]);
   const [username, setUsername] = useState("");
   const [userPhoto, setUserPhoto] = useState(null);
-
-  // 💡 NEW: Selected Chat State
   const [selectedChat, setSelectedChat] = useState(null);
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const myId =
-    typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const myId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
-  // ✅ Hydrate username fast from localStorage
+  // Hydrate username
   useEffect(() => {
-    const storedName =
-      typeof window !== "undefined" ? localStorage.getItem("username") : null;
+    const storedName = typeof window !== "undefined" ? localStorage.getItem("username") : null;
     if (storedName) setUsername(toStr(storedName));
   }, []);
 
-  // Fetch current user
+  // Fetch User
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -164,19 +150,16 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
         const user = data.user || {};
         setUsername(toStr(user.username || "U"));
         setUserPhoto(user.photoUrl || null);
-
         if (typeof window !== "undefined" && user.username) {
           localStorage.setItem("username", user.username);
         }
-      } catch {
-        // ignore
-      } finally {
+      } catch {} finally {
         setLoading(false);
       }
     })();
   }, [token]);
 
-  // Fetch conversations
+  // Fetch Chats
   useEffect(() => {
     async function load() {
       if (!token) {
@@ -194,12 +177,10 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
           throw new Error(j.error || "Failed to fetch conversations");
         }
         const data = await res.json();
-
         const mapped = (data.conversations || []).map((c) => {
           const title = formatTitle(c, myId);
           const preview = formatPreview(c);
           const isDeletedPeer = title === DELETED_USER_LABEL && !c?.isGroup;
-
           return {
             id: c._id,
             name: toStr(title),
@@ -218,24 +199,13 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
           };
         });
 
-        // ====================================================================
-        // 💡 NEW: CHATBOT INJECTION AND SORTING LOGIC
-        // ====================================================================
-
-        // 1. Separate AI and non-AI chats
-        const nonAiChats = mapped.filter(c => c.id !== AI_CHAT_ID);
-
-        // 2. Add the AI profile to the start of the list
-        // This ensures the AI chat is always visible near the top
+        const nonAiChats = mapped.filter((c) => c.id !== AI_CHAT_ID);
         const chatsWithAI = [AI_CHATBOT_PROFILE, ...nonAiChats];
-
         setChats(chatsWithAI);
 
-        // 👇 Join socket rooms (The AI chat doesn't need a socket room)
         nonAiChats.forEach((c) => {
           socket.emit("joinConversation", c.id);
         });
-
       } catch (e) {
         setErr(e.message);
       } finally {
@@ -245,41 +215,28 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
     load();
   }, [token, myId]);
 
-  // ✅ Listen for new messages via socket.io
+  // Socket Listener
   useEffect(() => {
     if (!socket) return;
-
-    // rejoin on reConnect
     socket.on("Connect", () => {
-      console.log("✅ Socket Connected, rejoining rooms...");
-      // Filter out the AI chat ID before trying to join a socket room
-      chats.filter(c => c.id !== AI_CHAT_ID).forEach((c) => socket.emit("joinConversation", c.id));
+      chats.filter((c) => c.id !== AI_CHAT_ID).forEach((c) => socket.emit("joinConversation", c.id));
     });
-
     socket.on("newMessage", (m) => {
       setChats((prev) => {
         const idx = prev.findIndex((c) => c.id === m.conversation._id);
         if (idx === -1) return prev;
-
-        // ... (Rest of your socket message update logic remains the same)
         const updated = [...prev];
         const conv = { ...updated[idx] };
-
-        conv.lastMessage = `${m.sender?.username || m.sender?.email || "User"}: ${m.text
-          }`;
+        conv.lastMessage = `${m.sender?.username || m.sender?.email || "User"}: ${m.text}`;
         conv.time = new Date(m.createdAt).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         });
-
-        // move to top
         updated.splice(idx, 1);
         updated.unshift(conv);
-
         return updated;
       });
     });
-
     return () => {
       socket.off("newMessage");
       socket.off("Connect");
@@ -295,12 +252,9 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
       const matchesTab =
         activeTab === "all" ||
         (activeTab === "unread" && Number(c?.unread) > 0) ||
-        (activeTab === "pinned" && !!c?.pinned) ||
-        (activeTab === "mentions" && toStr(c?.lastMessage).includes("@"));
-
-      // Also ensure the AI chat is included if the tab is 'all' or it matches the query
+        (activeTab === "pinned" && !!c?.pinned);
       const isAIChat = c.id === AI_CHAT_ID;
-      return (matchesQuery && matchesTab) || isAIChat;
+      return (matchesQuery && matchesTab) || (isAIChat && activeTab === 'all');
     });
   }, [query, activeTab, chats]);
 
@@ -309,13 +263,10 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
     ? `${BACKEND_URL}${userPhoto}`
     : initialAvatarFromLetter(topLetter);
 
-  // Toggle Chat
   const handleChatSelect = (chat) => {
-    if (selectedChat?.id === chat.id) return; // Already open
+    if (selectedChat?.id === chat.id) return;
     setSelectedChat(chat);
     if (setSidebarCollapsed) setSidebarCollapsed(true);
-
-    // Also save to localStorage for persistence if page refresh
     localStorage.setItem("activeConversationId", chat.id);
     localStorage.setItem("activeConversationName", chat.name);
     localStorage.setItem("activeConversationAvatar", chat.avatar);
@@ -328,85 +279,83 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
   };
 
   return (
-    <div className="h-full bg-seco text-gray-900 flex overflow-hidden">
-
-      {/* Left Side: List */}
-      <div className={`flex flex-col h-full bg-seco transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r border-gray-200
-        ${selectedChat ? 'w-full md:w-72 lg:w-80 hidden md:flex' : 'w-full max-w-2xl mx-auto'}`}>
-
-        {/* Top Bar for List */}
-        <header className={`sticky top-0 z-10 bg-seco ${!selectedChat ? 'rounded-3xl border-b border-gray-200 mt-4 mx-4 bg-white' : 'px-4 pt-4'}`}>
-          <div className={`${!selectedChat ? 'px-4' : ''}`}>
-            <div className={`flex items-center justify-between ${!selectedChat ? 'h-16' : 'h-12 mb-2'}`}>
-              <div className="flex items-center gap-3">
-                {!selectedChat && (
-                  <img
-                    alt={username || "me"}
-                    src={effectivePhotoSrc}
-                    className="h-10 w-10 rounded-full ring-2 ring-indigo-100 object-cover"
-                  />
-                )}
-                <div>
-                  <h1 className="text-lg font-semibold">{!selectedChat ? 'Chats' : 'Messages'}</h1>
-                  {!selectedChat && <p className="text-xs text-gray-500">All conversations</p>}
-                </div>
+    <div className="flex h-full overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white transition-colors duration-300">
+      
+      {/* Left Sidebar (List) */}
+      <div
+        className={`flex h-full flex-col border-r border-neutral-200 bg-white transition-all duration-300 dark:border-neutral-800 dark:bg-neutral-950 
+        ${selectedChat ? "hidden md:flex w-full md:w-80 lg:w-96" : "w-full max-w-4xl mx-auto md:w-80 md:mx-0 lg:w-96"}`}
+      >
+        {/* Header */}
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-neutral-200 px-4 dark:border-neutral-800">
+          <div className="flex items-center gap-3">
+            {!selectedChat && (
+              <div className="h-8 w-8 border border-neutral-200 bg-neutral-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
+                <img
+                  alt={username || "me"}
+                  src={effectivePhotoSrc}
+                  className="h-full w-full object-cover"
+                />
               </div>
+            )}
+            <div>
+              <h1 className="font-orbitron text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+                MESSAGES
+              </h1>
             </div>
-
-            {/* Search */}
-            <div className={`pb-3 ${!selectedChat ? '' : ''}`}>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search"
-                    className="w-full pl-10 pr-3 py-2 rounded-xl border border-gray-200 bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition shadow-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
-                {tabs.map((t) => {
-                  const active = activeTab === t.key;
-                  return (
-                    <button
-                      key={t.key}
-                      onClick={() => setActiveTab(t.key)}
-                      className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition ${active
-                        ? "bg-btn text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          </div>
+          <div className="flex gap-2">
+            <button className="flex h-8 w-8 items-center justify-center border border-neutral-200 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800">
+              <FunnelIcon className="h-4 w-4 text-neutral-500" />
+            </button>
           </div>
         </header>
 
-        {/* List Content */}
-        <div className={`flex-1 overflow-y-auto px-4 ${!selectedChat ? 'max-w-4xl mx-auto w-full' : ''}`}>
-          <div className="flex items-center justify-between pt-4 pb-2">
-            <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
-              {selectedChat ? 'Recent' : 'Conversations'}
-            </span>
+        {/* Search & Tabs */}
+        <div className="flex flex-col gap-4 border-b border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+          <div className="relative group">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="SEARCH LOGS..."
+              className="w-full border border-neutral-300 bg-white py-2 pl-9 pr-3 text-xs font-bold uppercase tracking-wide outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white dark:focus:border-white"
+            />
           </div>
 
+          <div className="flex gap-4">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                  activeTab === t.key
+                    ? "text-neutral-900 underline underline-offset-4 dark:text-white"
+                    : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
           {loading && (
-            <div className="py-8 text-sm text-gray-600">Loading chats...</div>
+            <div className="py-8 text-center text-xs font-bold uppercase text-neutral-400 animate-pulse">
+              Syncing Data...
+            </div>
           )}
           {!!err && !loading && (
-            <div className="py-8 text-sm text-red-600">Error: {err}</div>
+            <div className="p-4 text-center text-xs text-red-600 dark:text-red-400">
+              {err}
+            </div>
           )}
 
           {!loading && !err && (
-            <ul className="space-y-2 pb-24">
+            <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {filtered.map((chat) => (
                 <ChatListItem
                   key={chat.id}
@@ -423,9 +372,9 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
         </div>
       </div>
 
-      {/* Right Side: Chat Window */}
+      {/* Right Side (Chat Window) */}
       {selectedChat ? (
-        <div className="w-full flex-1 flex flex-col h-[100dvh] md:h-full bg-gray-50 z-50 md:z-0 md:relative fixed inset-0 md:inset-auto">
+        <div className="fixed inset-0 z-50 flex h-full w-full flex-col bg-neutral-50 md:relative md:z-0 dark:bg-neutral-950">
           <ChatWindow
             conversationId={selectedChat.id}
             conversationName={selectedChat.name}
@@ -437,64 +386,72 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
           />
         </div>
       ) : (
-        /* Placeholder for split view (optional, could be "Select a chat") */
-        <div className="hidden md:flex flex-1 items-center justify-center text-center p-8 bg-gray-800/50">
-          <div className="max-w-md">
-            <div className="mx-auto h-24 w-24 rounded-full bg-indigo-50 flex items-center justify-center mb-6">
-              <ChatBubbleOvalLeftIcon className="h-12 w-12 text-indigo-400" />
+        /* Empty State for Split View */
+        <div className="hidden flex-1 items-center justify-center bg-neutral-100 md:flex dark:bg-neutral-900">
+          <div className="flex flex-col items-center border border-dashed border-neutral-300 p-12 dark:border-neutral-700">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-800">
+              <ChatBubbleOvalLeftIcon className="h-8 w-8 text-neutral-400" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Select a Conversation</h2>
-            <p className="text-gray-500">Choose a person from the list to start chatting or ask Genius AI for help.</p>
+            <h2 className="mb-2 font-orbitron text-lg font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+              System Idle
+            </h2>
+            <p className="max-w-xs text-center text-xs font-mono text-neutral-500 dark:text-neutral-400">
+              Select a secure channel from the left directory to initiate communication.
+            </p>
           </div>
         </div>
       )}
-
     </div>
   );
 }
 
-// Chat list item
+// Chat List Item
 function ChatListItem({ chat, onClick, isActive }) {
-  const isAI = chat.id === AI_CHAT_ID;
+  const isAI = chat.type === "ai";
 
   return (
     <li
-      className={`group border rounded-2xl px-3 py-2 hover:border-indigo-200 transition cursor-pointer
-        ${isActive ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-gray-200'}`}
       onClick={onClick}
+      className={`group relative flex cursor-pointer items-start gap-4 p-4 transition-all hover:bg-neutral-50 dark:hover:bg-neutral-900 
+      ${isActive ? "bg-neutral-100 dark:bg-neutral-900" : "bg-white dark:bg-neutral-950"}`}
     >
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <img
+      {/* Active Indicator Strip */}
+      {isActive && (
+        <div className="absolute left-0 top-0 h-full w-1 bg-neutral-900 dark:bg-white" />
+      )}
+
+      {/* Avatar */}
+      <div className="relative shrink-0">
+        <div className={`h-12 w-12 border ${isAI ? 'border-indigo-500/50' : 'border-neutral-200 dark:border-neutral-700'}`}>
+           <img
             src={chat.avatar}
             alt={toStr(chat.name)}
-            className="h-10 w-10 rounded-full object-cover"
+            className="h-full w-full object-cover"
           />
-          <StatusDot status={chat.status} />
         </div>
-        <div className="min-w-0 flex-1">
+        {!isAI && <StatusSquare status={chat.status} />}
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <p className={`truncate text-sm font-medium ${isActive ? 'text-indigo-900' : 'text-gray-900'}`}>{toStr(chat.name)}</p>
-            {chat.type === "group" && (
-              <UserGroupIcon className="h-3 w-3 text-gray-400" />
-            )}
-            {/* Show a distinct icon for the AI chat */}
-            {chat.type === "ai" && (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3 text-indigo-500">
-                <path d="M11.75 3a.75.75 0 0 0-.75.75v3.5h-3.5a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 .75.75h3.5v3.5a.75.75 0 0 0 .75.75h3.5a.75.75 0 0 0 .75-.75v-3.5h3.5a.75.75 0 0 0 .75-.75v-3.5a.75.75 0 0 0-.75-.75h-3.5v-3.5a.75.75 0 0 0-.75-.75h-3.5Z" />
-              </svg>
-            )}
-            {chat.pinned && <PinIcon className="h-3 w-3 text-indigo-500" />}
-            {chat.muted && <BellSlashIcon className="h-3 w-3 text-gray-400" />}
+            <span className={`text-sm font-bold uppercase tracking-tight ${isActive ? "text-neutral-900 dark:text-white" : "text-neutral-700 dark:text-neutral-300"}`}>
+              {toStr(chat.name)}
+            </span>
+            {isAI && <CpuChipIcon className="h-4 w-4 text-indigo-500" />}
+            {chat.type === "group" && <UserGroupIcon className="h-3 w-3 text-neutral-400" />}
+            {chat.muted && <BellSlashIcon className="h-3 w-3 text-neutral-400" />}
           </div>
-          <p className={`text-xs truncate ${isActive ? 'text-indigo-600/70' : 'text-gray-500'}`}>
+          <span className="text-[10px] font-mono text-neutral-400">{chat.time}</span>
+        </div>
+        
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-xs font-mono text-neutral-500 dark:text-neutral-400">
             {toStr(chat.lastMessage)}
           </p>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-[10px] text-gray-400">{chat.time}</span>
           {chat.unread > 0 && (
-            <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-btn text-white text-[10px]">
+            <span className="flex h-5 min-w-[20px] items-center justify-center bg-neutral-900 px-1 text-[10px] font-bold text-white dark:bg-white dark:text-neutral-900">
               {chat.unread}
             </span>
           )}
@@ -504,49 +461,34 @@ function ChatListItem({ chat, onClick, isActive }) {
   );
 }
 
-function StatusDot({ status }) {
+function StatusSquare({ status }) {
   const map = {
     online: "bg-emerald-500",
     recent: "bg-amber-500",
-    offline: "bg-gray-300",
+    offline: "bg-neutral-300 dark:bg-neutral-700",
   };
   return (
-    <span
-      className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${map[status] || "bg-gray-300"
-        }`}
-      title={status}
+    <div
+      className={`absolute -bottom-1 -right-1 h-3 w-3 border border-white dark:border-neutral-950 ${map[status] || "bg-neutral-300"}`}
     />
-  );
-}
-
-function PinIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={props.className}>
-      <path
-        d="M12 3l2 4 4 2-6 6-2-4-4-2 6-6z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path d="M11 21l1-6" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
   );
 }
 
 function EmptyState({ query, activeTab }) {
   const msg = query
-    ? `No chats match "${query}".`
+    ? `NO DATA FOUND FOR "${query}"`
     : activeTab === "unread"
-      ? "No unread chats"
-      : activeTab === "pinned"
-        ? "No pinned chats"
-        : "No conversations yet. Start a chat from Contacts!";
+    ? "NO PENDING MESSAGES"
+    : "COMMUNICATION LOGS EMPTY";
+
   return (
-    <div className="text-center py-16">
-      <div className="mx-auto h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
-        <ChatBubbleOvalLeftIcon className="h-6 w-6 text-btn" />
+    <div className="flex flex-col items-center py-12 opacity-50">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center border border-neutral-300 dark:border-neutral-700">
+        <ChatBubbleOvalLeftIcon className="h-5 w-5 text-neutral-400" />
       </div>
-      <h3 className="text-lg text-gray-900 font-semibold mb-1">Nothing here</h3>
-      <p className="text-sm text-gray-500">{msg}</p>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+        {msg}
+      </span>
     </div>
   );
 }

@@ -34,18 +34,24 @@ const toStr = (v) => (v == null ? "" : String(v));
 /* ---------- Toast ---------- */
 function Toast({ toast, onClose }) {
   if (!toast) return null;
-  const colors =
+  
+  // Minimalist border-based styling instead of soft backgrounds
+  const typeStyles =
     toast.type === "success"
-      ? "bg-green-100 text-green-800"
+      ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
       : toast.type === "error"
-        ? "bg-red-100 text-red-800"
-        : "bg-gray-100 text-gray-800";
+      ? "border-red-500 text-red-600 dark:text-red-400"
+      : "border-neutral-500 text-neutral-600 dark:text-neutral-400";
+
   return (
-    <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg text-sm ${colors}`}>
-      <div className="flex items-center gap-2">
-        <span>{toast.msg}</span>
-        <button onClick={onClose} className="ml-2 text-xs opacity-70 hover:opacity-100">
-          Close
+    <div className={`fixed top-4 right-4 z-50 min-w-[300px] border-l-4 bg-white p-4 shadow-xl dark:bg-neutral-900 dark:border-r dark:border-t dark:border-b dark:border-neutral-800 ${typeStyles}`}>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-sm font-medium">{toast.msg}</span>
+        <button 
+          onClick={onClose} 
+          className="text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100"
+        >
+          Dismiss
         </button>
       </div>
     </div>
@@ -65,32 +71,26 @@ function ConfirmDialog({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm border border-gray-200">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-          <button onClick={onCancel} className="p-1 rounded hover:bg-gray-50" title="Close">
-            <XMarkIcon className="h-5 w-5 text-gray-600" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4 dark:border-neutral-800">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+            {title}
+          </h3>
+          <button onClick={onCancel} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white">
+            <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-5 py-4">
-          <p className="text-sm text-gray-700">{message}</p>
+        <div className="px-6 py-6">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">{message}</p>
         </div>
-        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
-          >
+        <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4 dark:border-neutral-800">
+          <Button variant="outline" onClick={onCancel} disabled={loading}>
             {cancelLabel}
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 text-sm"
-          >
-            {loading ? "Deleting..." : confirmLabel}
-          </button>
+          </Button>
+          <Button variant="danger" onClick={onConfirm} disabled={loading}>
+            {loading ? "PROCESSING..." : confirmLabel}
+          </Button>
         </div>
       </div>
     </div>
@@ -105,7 +105,6 @@ function ChangePasswordDialog({ open, onClose, onSuccess, apiBase, authHeader, s
   const [submitting, setSubmitting] = useState(false);
   const [errMsg, setErrMsg] = useState("");
 
-  // reset when opened/closed
   useEffect(() => {
     if (!open) {
       setCurrentPassword("");
@@ -138,9 +137,8 @@ function ChangePasswordDialog({ open, onClose, onSuccess, apiBase, authHeader, s
     if (!validate()) return;
     setSubmitting(true);
     try {
-      // Recommended dedicated endpoint for password change
       const res = await fetch(`${apiBase}/users/me/password`, {
-        method: "PUT", // or PATCH/POST based on backend
+        method: "PUT",
         headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
@@ -161,51 +159,57 @@ function ChangePasswordDialog({ open, onClose, onSuccess, apiBase, authHeader, s
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm border border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
         <form onSubmit={handleSubmit}>
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Change password</h3>
-            <button type="button" onClick={onClose} className="p-1 rounded hover:bg-gray-50" title="Close">
-              <XMarkIcon className="h-5 w-5 text-gray-600" />
+          <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4 dark:border-neutral-800">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+              Security
+            </h3>
+            <button type="button" onClick={onClose} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white">
+              <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="px-5 py-4 space-y-3">
-            {errMsg ? <p className="text-xs text-red-600">{errMsg}</p> : null}
+          <div className="space-y-4 px-6 py-6">
+            {errMsg && (
+              <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400">
+                {errMsg}
+              </div>
+            )}
 
-            <div>
-              <label className="text-xs text-gray-600">Current password</label>
+            <div className="group">
+              <label className="mb-1 block text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">Current Password</label>
               <input
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-800 focus:ring-gray-800"
+                className="w-full border border-neutral-300 bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white"
                 autoComplete="current-password"
                 required
               />
             </div>
 
-            <div>
-              <label className="text-xs text-gray-600">New password</label>
+            <div className="group">
+              <label className="mb-1 block text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">New Password</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="w-full border border-neutral-300 bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white"
                 autoComplete="new-password"
                 required
                 minLength={8}
               />
             </div>
 
-            <div>
-              <label className="text-xs text-gray-600">Confirm new password</label>
+            <div className="group">
+              <label className="mb-1 block text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">Confirm Password</label>
               <input
                 type="password"
                 value={confirmNew}
                 onChange={(e) => setConfirmNew(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="w-full border border-neutral-300 bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white"
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -213,22 +217,13 @@ function ChangePasswordDialog({ open, onClose, onSuccess, apiBase, authHeader, s
             </div>
           </div>
 
-          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
-            >
+          <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4 dark:border-neutral-800">
+            <Button variant="outline" onClick={onClose} disabled={submitting}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-3 py-1.5 rounded-lg bg-btn text-white hover:bg-sky-800 disabled:opacity-50 text-sm"
-            >
-              {submitting ? "Saving..." : "Save"}
-            </button>
+            </Button>
+            <Button type="submit" variant="solid" disabled={submitting}>
+              {submitting ? "SAVING..." : "UPDATE KEY"}
+            </Button>
           </div>
         </form>
       </div>
@@ -236,6 +231,7 @@ function ChangePasswordDialog({ open, onClose, onSuccess, apiBase, authHeader, s
   );
 }
 
+/* ---------- Main Component ---------- */
 export default function Settings() {
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = "info", ms = 2000) => {
@@ -245,27 +241,29 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-seco text-gray-900">
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white transition-colors duration-300">
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Header */}
-      <header className="top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
+      {/* Header - Sharp Edges */}
+      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/95">
         <div className="mx-auto max-w-3xl px-4">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <Cog6ToothIcon className="h-6 w-6 text-gray-700" />
-              <h1 className="text-lg font-semibold">Settings</h1>
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center border border-neutral-200 bg-neutral-100 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-400">
+                 <Cog6ToothIcon className="h-5 w-5" />
+              </div>
+              <h1 className="font-orbitron text-lg font-bold tracking-tight">SETTINGS</h1>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
+      <main className="mx-auto max-w-3xl px-4 py-8 space-y-8">
         <AccountSection showToast={showToast} />
-        {/* <PrivacySecuritySection />
+        <PrivacySecuritySection />
         <ChatsSection />
         <NotificationsSection />
-        <HelpAboutSection /> */}
+        <HelpAboutSection />
         <DangerZone showToast={showToast} />
       </main>
 
@@ -279,13 +277,10 @@ function AccountSection({ showToast }) {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
-
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-
   const [isUsernameEditing, setIsUsernameEditing] = useState(false);
   const [changePwdOpen, setChangePwdOpen] = useState(false);
-
   const lastSavedRef = useRef({ email: "", username: "" });
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -358,63 +353,57 @@ function AccountSection({ showToast }) {
     }
   }
 
-  if (loading) return <Section title="Account">Loading user details...</Section>;
-  if (err) return <Section title="Account">Error: {err}</Section>;
+  if (loading) return <Section title="Account" icon={<KeyIcon className="h-5 w-5"/>}>Loading user details...</Section>;
+  if (err) return <Section title="Account" icon={<KeyIcon className="h-5 w-5"/>}>Error: {err}</Section>;
 
   return (
-    <Section title="Account" icon={<KeyIcon className="h-5 w-5 text-gray-700" />}>
-      {/* Avatar Preview */}
-      <div className="flex justify-center mb-4">
-        {photoUrl ? (
-          <img
-            src={`${API_BASE.replace('/api', '')}${photoUrl}`}
-            alt="Profile"
-            className="h-20 w-20 rounded-full object-cover border border-gray-200"
-          />
-        ) : (
-          <div className="h-20 w-20 rounded-full bg-indigo-50 flex items-center justify-center text-2xl font-bold text-indigo-300">
-            {(username || email || "U")[0].toUpperCase()}
-          </div>
-        )}
+    <Section title="User Identity" icon={<KeyIcon className="h-5 w-5" />}>
+      {/* Avatar Preview - Square */}
+      <div className="flex items-center gap-6 py-4">
+        <div className="h-20 w-20 flex-shrink-0 border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800">
+          {photoUrl ? (
+            <img
+              src={`${API_BASE.replace('/api', '')}${photoUrl}`}
+              alt="Profile"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-neutral-300 dark:text-neutral-600">
+              {(username || email || "U")[0].toUpperCase()}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+           <Button variant="outline" onClick={() => setChangePwdOpen(true)} icon={<KeyOutlineIcon className="h-4 w-4" />}>
+              CHANGE PASSWORD
+           </Button>
+           <p className="text-xs text-neutral-400">Manage your avatar via external provider.</p>
+        </div>
       </div>
 
-      {/* Email copy-only row */}
       <CopyRow
-        label="Email"
+        label="Email Address"
         value={email}
-        icon={<InboxArrowDownIcon className="h-5 w-5 text-gray-600" />}
+        icon={<InboxArrowDownIcon className="h-5 w-5" />}
         onCopy={copyEmail}
       />
 
-      {/* Username editable row */}
       <EditableRow
         label="Username"
         value={username}
         onChange={setUsername}
         prefix="@"
-        icon={<GlobeAltIcon className="h-5 w-5 text-gray-600" />}
+        icon={<GlobeAltIcon className="h-5 w-5" />}
         isEditing={isUsernameEditing}
         onToggleEdit={() => setIsUsernameEditing((v) => !v)}
         onSave={saveUsername}
         onCancel={cancelUsernameEdit}
       />
 
-      <div className="mt-3 flex gap-2">
-        <Button variant="outline" onClick={() => setChangePwdOpen(true)} icon={<KeyOutlineIcon className="h-5 w-5" />}>
-          Change password
-        </Button>
-      </div>
-
-      {/* Change Password Modal */}
       <ChangePasswordDialog
         open={changePwdOpen}
         onClose={() => setChangePwdOpen(false)}
-        onSuccess={() => {
-          // Optional: some backends invalidate token after password change
-          // showToast("Password changed. Please sign in again.", "success");
-          // localStorage.removeItem("token");
-          // window.location.href = "/";
-        }}
+        onSuccess={() => {}}
         apiBase={API_BASE}
         authHeader={authHeader}
         showToast={showToast}
@@ -432,39 +421,34 @@ function PrivacySecuritySection() {
   const [disappearing, setDisappearing] = useState(false);
 
   return (
-    <Section title="Privacy & Security" icon={<ShieldCheckIcon className="h-5 w-5 text-gray-700" />}>
+    <Section title="Privacy Protocols" icon={<ShieldCheckIcon className="h-5 w-5" />}>
       <Toggle
-        label="Show Last Seen/Online"
+        label="Activity Status"
+        description="Visible online status"
         enabled={showLastSeen}
         onChange={() => setShowLastSeen((v) => !v)}
-        iconOn={<EyeIcon className="h-5 w-5 text-gray-600" />}
-        iconOff={<EyeSlashIcon className="h-5 w-5 text-gray-600" />}
       />
       <Toggle
-        label="Read receipts"
+        label="Read Receipts"
         enabled={showReadReceipts}
         onChange={() => setShowReadReceipts((v) => !v)}
-        iconOn={<ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-600" />}
       />
       <Toggle
-        label="Typing indicators"
+        label="Typing Indicators"
         enabled={showTyping}
         onChange={() => setShowTyping((v) => !v)}
-        iconOn={<ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-600" />}
       />
       <Toggle
-        label="End-to-end encryption"
-        description="Protect messages with device-based keys."
+        label="E2E Encryption"
+        description="Device-based keys active"
         enabled={e2ee}
         onChange={() => setE2ee((v) => !v)}
-        iconOn={<ShieldCheckIcon className="h-5 w-5 text-gray-600" />}
       />
       <Toggle
-        label="Default disappearing messages"
-        description="New chats will auto-delete messages after the set duration."
+        label="Auto-Deletion"
+        description="Clear history automatically"
         enabled={disappearing}
         onChange={() => setDisappearing((v) => !v)}
-        iconOn={<TrashIcon className="h-5 w-5 text-gray-600" />}
       />
     </Section>
   );
@@ -476,9 +460,9 @@ function ChatsSection() {
   const [fontSize, setFontSize] = useState("Medium");
 
   return (
-    <Section title="Chats" icon={<PaintBrushIcon className="h-5 w-5 text-gray-700" />}>
-      <SelectRow label="Theme" value={theme} onChange={setTheme} options={["System", "Light", "Dark"]} />
-      <SelectRow label="Font size" value={fontSize} onChange={setFontSize} options={["Small", "Medium", "Large"]} />
+    <Section title="Interface" icon={<PaintBrushIcon className="h-5 w-5" />}>
+      <SelectRow label="Color Theme" value={theme} onChange={setTheme} options={["System", "Light", "Dark"]} />
+      <SelectRow label="Typography Size" value={fontSize} onChange={setFontSize} options={["Small", "Medium", "Large"]} />
     </Section>
   );
 }
@@ -489,20 +473,17 @@ function NotificationsSection() {
   const [mentionsOnly, setMentionsOnly] = useState(false);
 
   return (
-    <Section title="Notifications" icon={<BellIcon className="h-5 w-5 text-gray-700" />}>
+    <Section title="Alerts" icon={<BellIcon className="h-5 w-5" />}>
       <Toggle
-        label="Enable notifications"
+        label="Push Notifications"
         enabled={enabled}
         onChange={() => setEnabled((v) => !v)}
-        iconOn={<SpeakerWaveIcon className="h-5 w-5 text-gray-600" />}
-        iconOff={<SpeakerXMarkIcon className="h-5 w-5 text-gray-600" />}
       />
       <Toggle
-        label="Mentions only"
-        description="Only alert when you are mentioned or replied to."
+        label="Mentions Only"
+        description="Filter broadcast messages"
         enabled={mentionsOnly}
         onChange={() => setMentionsOnly((v) => !v)}
-        iconOn={<ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-600" />}
       />
     </Section>
   );
@@ -511,11 +492,11 @@ function NotificationsSection() {
 /* ---------------- Help & About ---------------- */
 function HelpAboutSection() {
   return (
-    <Section title="Help & About" icon={<QuestionMarkCircleIcon className="h-5 w-5 text-gray-700" />}>
-      <LinkRow label="Help center" onClick={() => alert("Help Center")} />
-      <LinkRow label="Report a problem" onClick={() => alert("Report a problem")} />
-      <LinkRow label="Send feedback" onClick={() => alert("Send feedback")} />
-      <LinkRow label="About • v1.0.0" onClick={() => alert("App version 1.0.0")} />
+    <Section title="System" icon={<QuestionMarkCircleIcon className="h-5 w-5" />}>
+      <LinkRow label="Documentation" onClick={() => alert("Help Center")} />
+      <LinkRow label="Submit Issue Ticket" onClick={() => alert("Report a problem")} />
+      <LinkRow label="Send Feedback" onClick={() => alert("Send feedback")} />
+      <LinkRow label="Build Version v1.0.0" onClick={() => alert("App version 1.0.0")} />
     </Section>
   );
 }
@@ -564,61 +545,62 @@ function DangerZone({ showToast }) {
   }
 
   return (
-    <Section title="Danger zone" icon={<TrashIcon className="h-5 w-5 text-rose-600" />}>
+    <Section title="Danger Zone" icon={<TrashIcon className="h-5 w-5 text-red-600" />} borderColor="border-red-200 dark:border-red-900/30">
       <ConfirmDialog
         open={confirmOpen}
-        title="Delete account"
-        message="This action will permanently remove the account and all associated data. This cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title="IRREVERSIBLE ACTION"
+        message="This will permanently obliterate your account and all associated encrypted data. Proceed?"
+        confirmLabel="DELETE ACCOUNT"
+        cancelLabel="ABORT"
         onConfirm={confirmDeleteAccount}
         onCancel={() => setConfirmOpen(false)}
         loading={confirmBusy}
       />
 
-      <div className="flex flex-col sm:flex-row gap-2">
-        <Button variant="warn" icon={<ArrowRightOnRectangleIcon className="h-5 w-5" />} onClick={handleLogout}>
-          Log out
+      <div className="flex flex-col gap-4 pt-2 sm:flex-row">
+        <Button variant="warn" icon={<ArrowRightOnRectangleIcon className="h-4 w-4" />} onClick={handleLogout}>
+          TERMINATE SESSION
         </Button>
-        <Button variant="danger" icon={<TrashIcon className="h-5 w-5" />} onClick={openDeleteConfirm}>
-          Delete account
+        <Button variant="danger" icon={<TrashIcon className="h-4 w-4" />} onClick={openDeleteConfirm}>
+          DELETE ACCOUNT
         </Button>
       </div>
     </Section>
   );
 }
 
-/* ---------------- Reusable UI ---------------- */
-function Section({ title, icon, children }) {
+/* ---------------- Reusable UI Components (Modernized) ---------------- */
+
+function Section({ title, icon, children, borderColor = "border-neutral-200 dark:border-neutral-800" }) {
   return (
-    <section className="bg-white border border-gray-200 rounded-2xl p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
+    <section className={`bg-white border ${borderColor} p-6 shadow-sm dark:bg-neutral-900`}>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="flex h-8 w-8 items-center justify-center border border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-400">
           {icon}
         </div>
-        <h2 className="text-sm font-semibold text-gray-700">{title}</h2>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">{title}</h2>
       </div>
-      <div className="divide-y divide-gray-100">{children}</div>
+      <div className="divide-y divide-neutral-100 dark:divide-neutral-800">{children}</div>
     </section>
   );
 }
 
 function CopyRow({ icon, label, value, onCopy }) {
   return (
-    <div className="py-3 flex items-center gap-3">
-      <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
+    <div className="py-4 flex items-center gap-4 group">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-400">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-600">{label}</p>
-        <p className="text-sm font-medium truncate text-gray-900">{toStr(value)}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</p>
+        <p className="font-mono text-sm text-neutral-900 truncate dark:text-white mt-1">{toStr(value)}</p>
       </div>
       <button
         onClick={onCopy}
-        className="inline-flex items-center gap-1 px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-xs"
+        className="flex items-center gap-2 border border-neutral-200 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-neutral-600 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-white dark:hover:text-neutral-900 transition-colors"
         title="Copy"
       >
-        <ClipboardIcon className="h-4 w-4" />
+        <ClipboardIcon className="h-3 w-3" />
         Copy
       </button>
     </div>
@@ -637,80 +619,65 @@ function EditableRow({
   onCancel,
 }) {
   return (
-    <div className="py-3 flex items-center gap-3">
-      <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
+    <div className="py-4 flex items-center gap-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-400">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-600">{label}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</p>
         {isEditing ? (
-          <div className="mt-0.5 flex items-center gap-2">
-            {prefix && <span className="text-sm text-gray-500">{prefix}</span>}
+          <div className="mt-1 flex items-center gap-2">
+            {prefix && <span className="font-mono text-sm text-neutral-400">{prefix}</span>}
             <input
               type="text"
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              className="w-full bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none text-sm font-medium text-gray-900"
+              className="w-full bg-neutral-50 border-b border-neutral-900 px-2 py-1 font-mono text-sm text-neutral-900 focus:outline-none dark:bg-neutral-800 dark:border-white dark:text-white"
+              autoFocus
             />
           </div>
         ) : (
-          <p className="text-sm font-medium truncate text-gray-900 mt-0.5">
-            {prefix && <span className="text-gray-500">{prefix}</span>}
+          <p className="font-mono text-sm text-neutral-900 truncate dark:text-white mt-1">
+            {prefix && <span className="text-neutral-400">{prefix}</span>}
             {value}
           </p>
         )}
       </div>
       {isEditing ? (
         <div className="flex gap-2">
-          <button
-            onClick={onSave}
-            className="p-2 rounded-full bg-indigo-50 hover:bg-indigo-100"
-            title="Save"
-          >
-            <CheckIcon className="h-5 w-5 text-indigo-600" />
+          <button onClick={onSave} className="p-2 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">
+            <CheckIcon className="h-5 w-5" />
           </button>
-          <button
-            onClick={onCancel}
-            className="p-2 rounded-full bg-red-50 hover:bg-red-100"
-            title="Cancel"
-          >
-            <XMarkIcon className="h-5 w-5 text-red-600" />
+          <button onClick={onCancel} className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
+            <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
       ) : (
-        <button
-          onClick={onToggleEdit}
-          className="p-2 rounded-full bg-gray-50 hover:bg-gray-100"
-          title="Edit"
-        >
-          <PencilSquareIcon className="h-5 w-5 text-gray-600" />
+        <button onClick={onToggleEdit} className="p-2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
+          <PencilSquareIcon className="h-5 w-5" />
         </button>
       )}
     </div>
   );
 }
 
-function Toggle({ label, description, enabled, onChange, iconOn, iconOff }) {
+function Toggle({ label, description, enabled, onChange }) {
   return (
-    <div className="py-3 flex items-center justify-between gap-3">
-      <div className="flex items-start gap-3">
-        <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center">
-          {enabled ? iconOn || null : iconOff || iconOn || null}
-        </div>
-        <div>
-          <p className="text-sm font-medium text-gray-900">{label}</p>
-          {description && <p className="text-xs text-gray-600 mt-0.5">{description}</p>}
-        </div>
+    <div className="py-4 flex items-center justify-between gap-4">
+      <div>
+        <p className="text-sm font-bold text-neutral-900 dark:text-white">{label}</p>
+        {description && <p className="text-xs text-neutral-500 mt-1 dark:text-neutral-400">{description}</p>}
       </div>
       <button
         onClick={onChange}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${enabled ? "bg-btn" : "bg-gray-300"
-          }`}
-        aria-pressed={enabled}
+        className={`relative inline-flex h-6 w-12 items-center border border-neutral-300 transition-colors duration-200 dark:border-neutral-600 ${
+          enabled ? "bg-neutral-900 border-neutral-900 dark:bg-white dark:border-white" : "bg-neutral-100 dark:bg-neutral-800"
+        }`}
       >
         <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${enabled ? "translate-x-5" : "translate-x-1"
-            }`}
+          className={`inline-block h-4 w-4 transform bg-neutral-400 transition-transform duration-200 dark:bg-neutral-500 ${
+            enabled ? "translate-x-7 bg-white dark:bg-neutral-900" : "translate-x-1"
+          }`}
         />
       </button>
     </div>
@@ -719,15 +686,15 @@ function Toggle({ label, description, enabled, onChange, iconOn, iconOff }) {
 
 function SelectRow({ label, value, onChange, options }) {
   return (
-    <div className="py-3 flex items-center justify-between gap-3">
+    <div className="py-4 flex items-center justify-between gap-4">
       <div>
-        <p className="text-sm font-medium text-gray-900">{label}</p>
-        <p className="text-xs text-gray-600 mt-0.5">Current: {value}</p>
+        <p className="text-sm font-bold text-neutral-900 dark:text-white">{label}</p>
+        <p className="text-xs text-neutral-500 mt-1 dark:text-neutral-400">Current: {value}</p>
       </div>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm"
+        className="cursor-pointer border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-900 outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white dark:focus:border-white"
       >
         {options.map((opt) => (
           <option key={opt} value={opt}>
@@ -742,29 +709,31 @@ function SelectRow({ label, value, onChange, options }) {
 function LinkRow({ label, onClick }) {
   return (
     <button
-      className="w-full text-left py-3 flex items-center justify-between text-sm hover:bg-gray-50 rounded-lg px-2"
+      className="group w-full py-4 flex items-center justify-between text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/50 -mx-2 px-2 transition-colors"
       onClick={onClick}
     >
-      <span className="text-gray-800">{label}</span>
-      <ArrowUpOnSquareIcon className="h-5 w-5 text-gray-400 rotate-90" />
+      <span className="text-sm font-medium text-neutral-700 group-hover:text-neutral-900 dark:text-neutral-300 dark:group-hover:text-white">{label}</span>
+      <ArrowUpOnSquareIcon className="h-4 w-4 text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white rotate-90" />
     </button>
   );
 }
 
-function Button({ children, variant = "solid", icon = null, onClick }) {
-  const base = "inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm";
+function Button({ children, variant = "solid", icon = null, onClick, type = "button", disabled }) {
+  const base = "inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed";
+  
   const styles =
     variant === "solid"
-      ? "bg-btn text-white hover:bg-indigo-700"
+      ? "bg-neutral-900 text-white border border-neutral-900 hover:bg-white hover:text-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white"
       : variant === "outline"
-        ? "border border-gray-200 text-gray-800 hover:bg-gray-50"
-        : variant === "warn"
-          ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-          : variant === "danger"
-            ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
-            : "";
+      ? "border border-neutral-300 text-neutral-700 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-white dark:hover:text-white"
+      : variant === "warn"
+      ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-500"
+      : variant === "danger"
+      ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-500 dark:hover:bg-red-600 dark:hover:text-white"
+      : "";
+
   return (
-    <button className={`${base} ${styles}`} onClick={onClick}>
+    <button type={type} className={`${base} ${styles}`} onClick={onClick} disabled={disabled}>
       {icon}
       {children}
     </button>

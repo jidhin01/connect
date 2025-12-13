@@ -1,28 +1,28 @@
-// src/pages/login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import axios from 'axios';
-import Dither from '../components/background/Dither';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 function Login() {
   const navigate = useNavigate();
   const { setUser } = useUser();
 
+  // State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [message, setMessage] = useState('');
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const [showPassword, setShowPassword] = useState(false);
-  const toggleShowPassword = () => setShowPassword((v) => !v);
 
   const API = import.meta.env.VITE_API_URL;
 
+  // Handlers
   async function handleSignIn() {
     setLoading(true);
+    setMessage('');
     try {
       const res = await axios.post(`${API}/api/auth/login`, { email, password });
       const { user, token } = res.data;
@@ -32,10 +32,16 @@ function Login() {
       localStorage.setItem('username', user.username || '');
       localStorage.setItem('email', user.email || '');
 
-      setUser({ id: user.id, username: user.username, email: user.email, photoUrl: user.photoUrl || '' });
+      setUser({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        photoUrl: user.photoUrl || '',
+      });
+
       navigate('/logined');
     } catch (err) {
-      setMessage('Invalid credentials or server error');
+      setMessage('Invalid email or password.');
     } finally {
       setLoading(false);
     }
@@ -43,16 +49,19 @@ function Login() {
 
   async function handleSignUp() {
     if (!username || !email || !password) {
-      return setMessage('Please fill in all fields.');
+      setMessage('All fields are required.');
+      return;
     }
+
     setLoading(true);
+    setMessage('');
     try {
       await axios.post(`${API}/api/auth/register`, {
         username,
         email,
         password,
       });
-      setMessage('Registration successful. Please Log In.');
+      setMessage('Account created. Please sign in.');
       setIsSignUpMode(false);
     } catch (err) {
       setMessage('Registration failed. Try again.');
@@ -62,7 +71,7 @@ function Login() {
   }
 
   function toggleMode() {
-    setIsSignUpMode(!isSignUpMode);
+    setIsSignUpMode((v) => !v);
     setMessage('');
     setEmail('');
     setPassword('');
@@ -70,133 +79,129 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center font-inter p-4">
-      <div className="absolute inset-0">
-        <Dither
-          waveColor={[0.4, 0.6, 1.0]}
-          disableAnimation={false}
-          enableMouseInteraction={false}
-          colorNum={4}
-          waveAmplitude={0.3}
-          waveFrequency={3}
-          waveSpeed={0.05}
-        />
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 dark:bg-neutral-950 transition-colors duration-300">
+      
+      {/* Main Card Container - Sharp Edges */}
+      <div className="w-full max-w-md bg-white p-8 sm:p-10 border border-neutral-200 shadow-sm dark:bg-neutral-900 dark:border-neutral-800">
+        
+        {/* Header Section */}
+        <div className="mb-10">
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white font-orbitron">
+            CONNECT
+          </h1>
+          <div className="mt-3 flex items-center gap-2">
+            <div className="h-px w-8 bg-neutral-300 dark:bg-neutral-700"></div>
+            <p className="text-xs uppercase tracking-widest text-neutral-500 dark:text-neutral-400">
+              {isSignUpMode ? 'New Account' : 'Secure Login'}
+            </p>
+          </div>
+        </div>
 
-      <div className="bg-white/5 backdrop-blur-3xl z-10 p-8 rounded-xl shadow-2xl w-full max-w-md">
-        <div className="text-6xl text-white font-bitcount text-center mb-5">Connect</div>
-
+        {/* Message Alert - Sharp Edges */}
         {message && (
           <div
-            className={`px-4 py-3 rounded-lg mb-4 ${message.includes('successful')
-              ? 'bg-green-100 border border-green-400 text-green-700'
-              : 'bg-red-100 border border-red-400 text-red-700'
-              }`}
+            className={`mb-8 flex items-center border-l-4 px-4 py-3 text-sm font-medium ${
+              message.includes('created')
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                : 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+            }`}
           >
             {message}
           </div>
         )}
 
+        {/* Form */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             isSignUpMode ? handleSignUp() : handleSignIn();
           }}
+          className="space-y-6"
         >
+          {/* Username Input (Sign Up Only) */}
           {isSignUpMode && (
-            <div className="mb-6">
-              <label className="block text-gray-200 text-sm font-bold mb-2">User Name</label>
+            <div className="group">
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white transition-colors">
+                Username
+              </label>
               <input
                 type="text"
-                placeholder="Your Name"
-                className="w-full border border-gray-400 text-gray-200 rounded-lg py-3 px-4"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                className="w-full border border-neutral-300 bg-transparent px-4 py-3.5 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-0 dark:border-neutral-700 dark:text-white dark:focus:border-white transition-all"
+                placeholder="ENTER USERNAME"
               />
             </div>
           )}
 
-          <div className="mb-6">
-            <label className="block text-gray-200 text-sm font-bold mb-2">Email</label>
+          {/* Email Input */}
+          <div className="group">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white transition-colors">
+              Email Address
+            </label>
             <input
               type="email"
-              placeholder="email@example.com"
-              className="w-full border border-gray-400 text-gray-200 rounded-lg py-3 px-4"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              className="w-full border border-neutral-300 bg-transparent px-4 py-3.5 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-0 dark:border-neutral-700 dark:text-white dark:focus:border-white transition-all"
+              placeholder="NAME@EXAMPLE.COM"
             />
           </div>
 
-          <div className="mb-8">
-            <label className="block text-gray-200 text-sm font-bold mb-2">Password</label>
+          {/* Password Input */}
+          <div className="group">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white transition-colors">
+              Password
+            </label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="********"
-                className="w-full border border-gray-400 text-gray-200 rounded-lg py-3 px-4 pr-12"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                aria-describedby="password-visibility"
+                className="w-full border border-neutral-300 bg-transparent px-4 py-3.5 pr-12 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-0 dark:border-neutral-700 dark:text-white dark:focus:border-white transition-all"
+                placeholder="••••••••"
               />
               <button
                 type="button"
-                onClick={toggleShowPassword}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                aria-pressed={showPassword}
-                id="password-visibility"
-                className="absolute inset-y-0 right-2 flex items-center px-2 text-gray-300 hover:text-white focus:outline-none"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-0 top-0 h-full px-4 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
               >
                 {showPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18M10.58 10.58A3 3 0 0112 9c1.657 0 3 1.343 3 3 0 .422-.084.824-.237 1.19m-1.106 1.106A2.993 2.993 0 0112 15c-1.657 0-3-1.343-3-3 0-.422.084-.824.237-1.19m9.013 5.88A11.955 11.955 0 0021 12c-1.5-3.5-5-6-9-6-1.52 0-2.96.34-4.23.95m-3.37 2.49A11.955 11.955 0 003 12c1.5 3.5 5 6 9 6 1.18 0 2.31-.2 3.36-.58" />
-                  </svg>
+                  <EyeSlashIcon className="h-5 w-5" />
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
+                  <EyeIcon className="h-5 w-5" />
                 )}
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-sky-700/10 hover:bg-sky-900/25 backdrop-blur-2xl text-gray-200 font-bold py-3 px-4 rounded-lg mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                  ></path>
-                </svg>
-                <span className="ml-2">Loading...</span>
-              </div>
-            ) : (
-              isSignUpMode ? 'Sign Up' : 'Log In'
-            )}
-          </button>
+          {/* Action Buttons */}
+          <div className="pt-4 space-y-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-neutral-900 border border-neutral-900 py-3.5 text-sm font-semibold uppercase tracking-wider text-white hover:bg-white hover:text-neutral-900 disabled:opacity-50 disabled:hover:bg-neutral-900 disabled:hover:text-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white transition-all duration-200"
+            >
+              {loading
+                ? 'PROCESSING...'
+                : isSignUpMode
+                ? 'CREATE ACCOUNT'
+                : 'SIGN IN'}
+            </button>
 
-          <button
-            type="button"
-            onClick={toggleMode}
-            disabled={loading}
-            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg"
-          >
-            {isSignUpMode ? 'Already have an account? ' : 'Need an account? Sign Up'}
-          </button>
+            <button
+              type="button"
+              onClick={toggleMode}
+              disabled={loading}
+              className="w-full border border-transparent py-3.5 text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors"
+            >
+              {isSignUpMode
+                ? 'Already a member? Sign in'
+                : "Don't have an account? Join now"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

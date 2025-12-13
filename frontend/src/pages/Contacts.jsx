@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  EllipsisVerticalIcon,
   MagnifyingGlassIcon,
   UserPlusIcon,
   ChatBubbleOvalLeftIcon,
@@ -10,34 +9,30 @@ import {
   ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
 
+/* ---------- Config ---------- */
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
-const tabs = [{ key: "all", label: "All" }];
+const tabs = [{ key: "all", label: "ALL CONTACTS" }];
 
-// String safety helpers
+/* ---------- Helpers ---------- */
 const toStr = (v) => (v == null ? "" : String(v));
 const lower = (v) =>
   typeof v === "string" ? v.toLowerCase() : toStr(v).toLowerCase();
 
-// First letter only
 function getInitial(name) {
   if (!name) return "U";
   const s = toStr(name).trim();
   return s ? s[0].toUpperCase() : "U";
 }
 
-// DiceBear Initials (single-letter seed)
 function initialAvatarFromLetter(letter) {
   const l = getInitial(letter);
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-    l
-  )}`;
+  // Using a square background style for dicebear if possible, or just raw SVG
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(l)}&backgroundColor=171717&textColor=ffffff`;
 }
 
-// Label for deleted/missing user
-const DELETED_USER_LABEL = "User account deactivated";
+const DELETED_USER_LABEL = "DEACTIVATED USER";
 
-// Avatar resolver
 function resolveContactAvatar(conversation, myId) {
   if (conversation?.isGroup) {
     const letter = getInitial(conversation?.groupName || "G");
@@ -58,7 +53,6 @@ function resolveContactAvatar(conversation, myId) {
   return initialAvatarFromLetter(letter);
 }
 
-// Title formatter
 const formatTitle = (c, myId) => {
   if (c?.isGroup && c?.groupName) return toStr(c.groupName);
   const parts = Array.isArray(c?.participants) ? c.participants : [];
@@ -81,6 +75,26 @@ const inferStatus = (c) => {
   return "offline";
 };
 
+/* ---------- Components ---------- */
+
+function Toast({ toast, onClose }) {
+  if (!toast) return null;
+  const typeStyles =
+    toast.type === "success"
+      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/10 dark:text-emerald-400"
+      : toast.type === "error"
+      ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-400"
+      : "border-neutral-500 bg-neutral-50 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300";
+
+  return (
+    <div className={`fixed top-4 right-4 z-50 flex min-w-[300px] items-center gap-3 border-l-4 p-4 shadow-xl dark:border-r dark:border-t dark:border-b dark:border-neutral-800 dark:bg-neutral-900 ${typeStyles}`}>
+      {toast.type === "success" && <CheckCircleIcon className="h-5 w-5" />}
+      {toast.type === "error" && <ExclamationCircleIcon className="h-5 w-5" />}
+      <span className="text-sm font-bold uppercase tracking-wide">{toast.msg}</span>
+    </div>
+  );
+}
+
 export default function Contacts() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -94,10 +108,8 @@ export default function Contacts() {
   const [username, setUsername] = useState("");
   const [userPhoto, setUserPhoto] = useState(null);
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const myId =
-    typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const myId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
 
   useEffect(() => {
     setContacts([]);
@@ -115,7 +127,6 @@ export default function Contacts() {
         });
         if (!res.ok) throw new Error("Could not fetch user");
         const data = await res.json();
-
         const user = data.user || {};
         setUsername(toStr(user.username || "U"));
         setUserPhoto(user.photoUrl || null);
@@ -154,12 +165,6 @@ export default function Contacts() {
           name: toStr(title),
           avatar: isDeletedPeer ? "/nouser.png" : resolveContactAvatar(c, myId),
           status: inferStatus(c),
-          lastSeen:
-            inferStatus(c) === "online"
-              ? "Online"
-              : `Last active ${new Date(
-                c?.updatedAt || c?.createdAt
-              ).toLocaleString()}`,
           favorite: false,
           _raw: c,
         };
@@ -207,13 +212,13 @@ export default function Contacts() {
       if (!email) return;
 
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        showToast("Please enter a valid email.", "error");
+        showToast("INVALID EMAIL FORMAT", "error");
         return;
       }
 
       const myEmail = localStorage.getItem("email");
       if (myEmail && myEmail.toLowerCase() === email) {
-        showToast("Cannot add yourself.", "error");
+        showToast("CANNOT ADD SELF", "error");
         return;
       }
 
@@ -222,12 +227,9 @@ export default function Contacts() {
       await reloadConversations();
       setShowModal(false);
       setEmailInput("");
-      showToast(
-        `Added or found chat with ${user.username || user.email}.`,
-        "success"
-      );
+      showToast(`CONNECTED: ${user.username || user.email}`, "success");
     } catch (e) {
-      showToast(e.message || "Failed to add contact", "error");
+      showToast(e.message || "OPERATION FAILED", "error");
     }
   }
 
@@ -239,11 +241,7 @@ export default function Contacts() {
   const filtered = useMemo(() => {
     const q = lower(query.trim());
     if (!q) return contacts;
-    return contacts.filter(
-      (c) =>
-        lower(c?.name).includes(q) ||
-        (c?.lastSeen && lower(c?.lastSeen).includes(q))
-    );
+    return contacts.filter((c) => lower(c?.name).includes(q));
   }, [query, contacts]);
 
   const topLetter = getInitial(username);
@@ -252,56 +250,47 @@ export default function Contacts() {
     : initialAvatarFromLetter(topLetter);
 
   return (
-    <div className="h-screen bg-seco text-gray-900 relative">
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm ${toast.type === "success"
-            ? "bg-green-100 text-green-800"
-            : toast.type === "error"
-              ? "bg-red-100 text-red-800"
-              : "bg-gray-100 text-gray-800"
-            }`}
-        >
-          {toast.type === "success" && (
-            <CheckCircleIcon className="h-5 w-5" />
-          )}
-          {toast.type === "error" && (
-            <ExclamationCircleIcon className="h-5 w-5" />
-          )}
-          <span>{toast.msg}</span>
-        </div>
-      )}
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white transition-colors duration-300 relative">
+      <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Add Contact Modal */}
+      {/* Add Contact Modal - Sharp Edges */}
       {showModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center  bg-white/10 backdrop-blur-lg bg-opacity-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Add Contact</h2>
-              <button onClick={() => setShowModal(false)}>
-                <XMarkIcon className="h-5 w-5 text-gray-500" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+            <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4 dark:border-neutral-800">
+              <h2 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+                Initialize Connection
+              </h2>
+              <button onClick={() => setShowModal(false)} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white">
+                <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
-            <input
-              type="email"
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              placeholder="Enter user email"
-              className="w-full mb-4 px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-200 outline-none"
-            />
-            <div className="flex justify-end gap-2">
+            
+            <div className="px-6 py-6">
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                User Email
+              </label>
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="USER@EXAMPLE.COM"
+                className="w-full border border-neutral-300 bg-transparent px-4 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4 dark:border-neutral-800">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50"
+                className="border border-neutral-300 px-4 py-2 text-xs font-bold uppercase text-neutral-700 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-white dark:hover:text-white"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddContact}
-                className="px-4 py-2 rounded-xl bg-btn text-white hover:opacity-90"
+                className="bg-neutral-900 border border-neutral-900 px-4 py-2 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white transition-all"
               >
-                Add
+                Add User
               </button>
             </div>
           </div>
@@ -309,103 +298,103 @@ export default function Contacts() {
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-20 rounded-3xl bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-4xl px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <img
-                alt={username || "me"}
-                src={effectivePhotoSrc}
-                className="h-10 w-10 rounded-full ring-2 ring-indigo-100 object-cover"
-              />
+      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/95">
+        <div className="mx-auto max-w-4xl px-4 py-4">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 overflow-hidden border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800">
+                <img
+                  alt={username || "me"}
+                  src={effectivePhotoSrc}
+                  className="h-full w-full object-cover"
+                />
+              </div>
               <div>
-                <h1 className="text-lg font-semibold">Contacts</h1>
-                <p className="text-xs text-gray-500">
-                  Find people and start chats
+                <h1 className="font-orbitron text-xl font-bold tracking-tight uppercase text-neutral-900 dark:text-white">
+                  Contacts
+                </h1>
+                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                  Directory Listing
                 </p>
               </div>
             </div>
           </div>
 
           {/* Search + Actions */}
-          <div className="pb-3">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search contacts"
-                  className="w-full pl-10 pr-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none transition"
-                />
-              </div>
-              {/* First Add button */}
-              <button
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50"
-                onClick={() => setShowModal(true)}
-                title="Add by email"
-              >
-                <UserPlusIcon className="h-5 w-5 text-gray-700" />
-                <span className="hidden sm:inline text-sm">Add</span>
-              </button>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="relative flex-1 group">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="SEARCH DATABASE..."
+                className="w-full border border-neutral-300 bg-transparent py-2.5 pl-10 pr-3 text-sm font-medium outline-none transition-colors focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white"
+              />
             </div>
+            
+            <button
+              className="inline-flex items-center justify-center gap-2 border border-neutral-300 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-neutral-900 hover:bg-neutral-50 hover:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white dark:hover:border-white dark:hover:bg-neutral-800 transition-all"
+              onClick={() => setShowModal(true)}
+            >
+              <UserPlusIcon className="h-4 w-4" />
+              <span>Add New</span>
+            </button>
+          </div>
 
-            {/* Tabs */}
-            <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
-              {tabs.map((t) => {
-                const active = activeTab === t.key;
-                return (
-                  <button
-                    key={t.key}
-                    onClick={() => setActiveTab(t.key)}
-                    className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition ${active
-                      ? "bg-btn text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                  >
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Tabs - Industrial Style */}
+          <div className="mt-6 flex border-b border-neutral-200 dark:border-neutral-800">
+            {tabs.map((t) => {
+              const active = activeTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className={`px-6 py-2 text-xs font-bold uppercase tracking-widest transition-all ${
+                    active
+                      ? "border-b-2 border-neutral-900 text-neutral-900 dark:border-white dark:text-white"
+                      : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-4xl px-4">
-        <div className="flex items-center justify-between pt-4 pb-2">
-          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
-            My Contacts
-          </span>
-        </div>
-
+      <main className="mx-auto max-w-4xl px-4 py-6">
         {loading && (
-          <div className="py-8 text-sm text-gray-600">
-            Loading conversations...
+          <div className="py-12 text-center text-xs font-bold uppercase text-neutral-400 animate-pulse">
+            Retrieving Data...
           </div>
         )}
+        
         {!!err && !loading && (
-          <div className="py-8 text-sm text-red-600">Error: {err}</div>
+          <div className="border border-red-200 bg-red-50 p-4 text-center text-xs font-bold uppercase text-red-600 dark:border-red-900 dark:bg-red-900/10 dark:text-red-400">
+            System Error: {err}
+          </div>
         )}
 
         {!loading && !err && (
-          <ul className="space-y-2 pb-24">
+          <div className="space-y-3 pb-24">
             {filtered.map((c) => (
               <ContactRow key={c.id} contact={c} myId={myId} />
             ))}
             {filtered.length === 0 && (
               <EmptyState
-                tab={activeTab}
                 query={query}
                 onAddClick={() => setShowModal(true)}
               />
             )}
-          </ul>
+          </div>
         )}
       </main>
-      <div className="h-14 md:hidden" />
+      
+      {/* Mobile spacer */}
+      <div className="h-16 md:hidden" />
     </div>
   );
 }
@@ -419,8 +408,8 @@ function ContactRow({ contact, myId }) {
   }, [contact, myId]);
 
   return (
-    <li
-      className="group bg-white border border-gray-200 rounded-2xl p-3 hover:border-indigo-200 transition cursor-pointer"
+    <div
+      className="group flex cursor-pointer items-center justify-between border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-400 hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600"
       onClick={() => {
         localStorage.setItem("activeConversationId", contact.id);
         localStorage.setItem("activeConversationName", contact.name);
@@ -428,85 +417,83 @@ function ContactRow({ contact, myId }) {
         window.location.href = "/chat";
       }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <div className="relative">
+          {/* Avatar - Sharp Square */}
           <img
             src={contact.avatar}
             alt={toStr(contact.name)}
-            className="h-12 w-12 rounded-full object-cover"
+            className="h-12 w-12 border border-neutral-200 object-cover dark:border-neutral-700"
           />
-          <StatusDot status={contact.status} />
+          <StatusSquare status={contact.status} />
         </div>
-        <div className="min-w-0 flex-1">
+        
+        <div className="flex flex-col">
           <div className="flex items-center gap-2">
-            <p className="truncate font-medium">{toStr(contact.name)}</p>
+            <span className="font-bold uppercase tracking-tight text-neutral-900 dark:text-white">
+              {toStr(contact.name)}
+            </span>
             {contact.favorite && (
-              <StarIcon
-                className="h-4 w-4 text-amber-500"
-                aria-label="Favourite"
-              />
+              <StarIcon className="h-3 w-3 text-amber-500 fill-amber-500" />
             )}
           </div>
           {otherUser?.email && (
-            <p className="text-sm text-gray-500 truncate">
+            <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400">
               {toStr(otherUser.email)}
-            </p>
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <ActionMini title="Message">
-            <ChatBubbleOvalLeftIcon className="h-5 w-5 text-gray-700" />
-          </ActionMini>
-        </div>
       </div>
-    </li>
+
+      <button
+        title="Open Chat"
+        className="flex h-9 w-9 items-center justify-center border border-neutral-200 text-neutral-400 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-neutral-700 dark:hover:border-white dark:hover:bg-white dark:hover:text-neutral-900 transition-all"
+      >
+        <ChatBubbleOvalLeftIcon className="h-5 w-5" />
+      </button>
+    </div>
   );
 }
 
-function StatusDot({ status }) {
+function StatusSquare({ status }) {
+  // Using sharp squares instead of circles
   const map = {
     online: "bg-emerald-500",
     recent: "bg-amber-500",
-    offline: "bg-gray-300",
+    offline: "bg-neutral-300 dark:bg-neutral-700",
   };
   return (
-    <span
-      className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${map[status] || "bg-gray-300"
-        }`}
-      title={status}
+    <div
+      className={`absolute -bottom-1 -right-1 h-3 w-3 border border-white dark:border-neutral-900 ${map[status] || "bg-neutral-300"}`}
+      title={status.toUpperCase()}
     />
   );
 }
 
-function ActionMini({ children, title }) {
+function EmptyState({ query, onAddClick }) {
+  const msg = query
+        ? `NO MATCHES FOUND FOR "${query}"`
+        : "DATABASE EMPTY. INITIALIZE NEW CONNECTION.";
+  
   return (
-    <button
-      title={title}
-      className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 hover:bg-gray-50 active:bg-gray-100"
-    >
-      {children}
-    </button>
-  );
-}
-
-function EmptyState({ tab, query, onAddClick }) {
-  const msg =
-    tab === "invites"
-      ? "No pending invites. Share your QR or link to invite contacts."
-      : query
-        ? `No contacts match "${query}".`
-        : "No contacts yet. Add or invite someone to get started.";
-  return (
-    <div className="text-center py-16">
-      <button
-        onClick={onAddClick}
-        className="mx-auto h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center mb-4 hover:bg-indigo-100"
-      >
-        <UserPlusIcon className="h-6 w-6 text-btn" />
-      </button>
-      <h3 className="text-lg text-white font-semibold mb-1">Nothing here</h3>
-      <p className="text-sm text-gray-500">{msg}</p>
+    <div className="flex flex-col items-center justify-center py-20 border border-dashed border-neutral-300 dark:border-neutral-800">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/50">
+        <UserPlusIcon className="h-8 w-8 text-neutral-400" />
+      </div>
+      <h3 className="mb-1 text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+        No Contacts
+      </h3>
+      <p className="mb-6 text-xs font-mono text-neutral-500 dark:text-neutral-400 text-center max-w-xs">
+        {msg}
+      </p>
+      {!query && (
+        <button
+          onClick={onAddClick}
+          className="bg-neutral-900 px-6 py-3 text-xs font-bold uppercase text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+        >
+          Add Contact
+        </button>
+      )}
     </div>
   );
-
 }

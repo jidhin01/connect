@@ -1,96 +1,100 @@
 import { useState, useEffect, useRef } from "react";
 import { useUser } from "../context/UserContext";
 import {
-  CameraIcon,
   UserCircleIcon,
   EnvelopeIcon,
-  PhoneIcon,
-  ChatBubbleLeftRightIcon as StatusIcon,
-  InformationCircleIcon,
   ArrowRightOnRectangleIcon,
   TrashIcon,
-  ShieldCheckIcon,
   EyeIcon,
-  EyeSlashIcon,
-  CheckIcon,
   XMarkIcon,
   SparklesIcon,
+  PencilSquareIcon,
+  CheckIcon,
 } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
 
+/* ---------- Config ---------- */
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
 
-const toStr = (v) => (v == null ? "" : String(v));
-function getInitial(name) {
-  const s = toStr(name).trim();
-  return s ? s[0].toUpperCase() : "A";
-}
-function initialsAvatar(letter) {
-  const l = getInitial(letter);
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(l)}`;
-}
+/* ---------- Helpers ---------- */
+const initialsAvatar = (name = "A") =>
+  `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+    name[0]?.toUpperCase() || "A"
+  )}&backgroundColor=171717&textColor=ffffff`;
 
-// Reusable Components
+/* -------------------- COMPONENTS -------------------- */
+
 function Toast({ toast, onClose }) {
   if (!toast) return null;
-  const colors =
-    toast.type === "success"
-      ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-      : toast.type === "error"
-        ? "bg-rose-50 text-rose-600 border-rose-200"
-        : "bg-gray-50 text-gray-800 border-gray-200";
+  const colorStyles =
+    toast.type === "error"
+      ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-400"
+      : "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/10 dark:text-emerald-400";
+
   return (
-    <div className={`fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300`}>
-      <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-sm ${colors}`}>
-        <span className="font-medium text-sm">{toast.msg}</span>
-        <button onClick={onClose} className="opacity-60 hover:opacity-100 transition-opacity">
-          <XMarkIcon className="h-4 w-4" />
-        </button>
+    <div className={`fixed top-6 right-6 z-50 flex items-center gap-4 border-l-4 p-4 shadow-xl dark:border-r dark:border-t dark:border-b dark:border-neutral-800 dark:bg-neutral-900 ${colorStyles}`}>
+      <span className="text-xs font-bold uppercase tracking-wide">{toast.msg}</span>
+      <button onClick={onClose} className="hover:opacity-70">
+        <XMarkIcon className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function ConfirmModal({ open, title, desc, confirmText, onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+          {title}
+        </h3>
+        <div className="my-4 h-px w-full bg-neutral-100 dark:bg-neutral-800" />
+        <p className="mb-6 text-sm font-mono text-neutral-500 dark:text-neutral-400">{desc}</p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            className="border border-neutral-300 px-4 py-2 text-xs font-bold uppercase text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="bg-neutral-900 border border-neutral-900 px-4 py-2 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 dark:border-white transition-colors"
+          >
+            {confirmText}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function Section({ title, children, icon: Icon }) {
-  return (
-    <section className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm ring-1 ring-black/5">
-      <div className="flex items-center gap-2 mb-6 text-gray-900">
-        {Icon && <Icon className="h-5 w-5 text-gray-500" />}
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      </div>
-      <div className="space-y-6">{children}</div>
-    </section>
-  );
-}
-
-function InputGroup({ label, value, onChange, placeholder, icon: Icon, type = "text", disabled = false, multiline = false }) {
+function Field({ label, value, onChange, disabled, multiline, icon: Icon }) {
   return (
     <div className="group">
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 ml-1">
+      <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white transition-colors">
         {label}
       </label>
-      <div className={`relative flex items-start transition-all duration-200 rounded-2xl bg-gray-50 ring-1 ring-transparent focus-within:bg-white focus-within:ring-[--color-btn] focus-within:ring-2 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100/80'}`}>
-        <div className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-[--color-btn] transition-colors">
-          {Icon && <Icon className="h-5 w-5" />}
-        </div>
+      <div className="relative">
+        {Icon && (
+          <Icon className="absolute left-3 top-3 h-5 w-5 text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white transition-colors" />
+        )}
         {multiline ? (
           <textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
-            placeholder={placeholder}
             rows={3}
-            className="w-full bg-transparent border-none py-3 pl-12 pr-4 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6 resize-none"
+            className="w-full border border-neutral-300 bg-transparent px-4 py-2.5 pl-10 text-sm font-mono text-neutral-900 outline-none focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
         ) : (
           <input
-            type={type}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
-            placeholder={placeholder}
-            className="w-full bg-transparent border-none py-3 pl-12 pr-4 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
+            className="w-full border border-neutral-300 bg-transparent px-4 py-2.5 pl-10 text-sm font-mono text-neutral-900 outline-none focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           />
         )}
       </div>
@@ -98,361 +102,256 @@ function InputGroup({ label, value, onChange, placeholder, icon: Icon, type = "t
   );
 }
 
-function Toggle({ label, checked, onChange, icon: Icon }) {
+function Toggle({ label, checked, onChange }) {
   return (
-    <div className="flex items-center justify-between py-1 group">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-500 group-hover:bg-gray-100 transition-colors">
-          {Icon ? <Icon className="h-5 w-5" /> : null}
-        </div>
-        <span className="font-medium text-gray-700">{label}</span>
+    <button
+      onClick={() => onChange(!checked)}
+      className={`flex w-full items-center justify-between border px-4 py-3 transition-colors ${
+        checked 
+          ? "border-neutral-900 bg-neutral-50 dark:border-white dark:bg-neutral-900" 
+          : "border-neutral-300 hover:border-neutral-400 dark:border-neutral-700 dark:hover:border-neutral-600"
+      }`}
+    >
+      <span className="text-xs font-bold uppercase tracking-wide text-neutral-900 dark:text-white">
+        {label}
+      </span>
+      <div className={`flex h-5 w-5 items-center justify-center border ${checked ? "border-neutral-900 bg-neutral-900 dark:border-white dark:bg-white" : "border-neutral-300 dark:border-neutral-600"}`}>
+        {checked && <CheckIcon className="h-4 w-4 text-white dark:text-neutral-900" />}
       </div>
-      <button
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[--color-btn] focus:ring-offset-2 ${checked ? "bg-[--color-btn]" : "bg-gray-200"
-          }`}
-      >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-sm ${checked ? "translate-x-6" : "translate-x-1"
-            }`}
-        />
-      </button>
-    </div>
+    </button>
   );
 }
 
+/* -------------------- MAIN -------------------- */
+
 export default function Profile() {
+  const { setUser } = useUser();
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+  const initialRef = useRef(null);
 
-  // Form State
-  const initialDataRef = useRef(null);
-  const [formData, setFormData] = useState({
-    name: "",
+  const [form, setForm] = useState({
     username: "",
     email: "",
     bio: "",
     showLastSeen: true,
     showPhoto: true,
-    photoUrl: ""
+    photoUrl: "",
   });
-  const [isDirty, setIsDirty] = useState(false);
 
-  // Check if form is dirty whenever formData changes
-  useEffect(() => {
-    if (!initialDataRef.current) return;
+  const authHeader = { Authorization: `Bearer ${token}` };
 
-    const initial = initialDataRef.current;
-    const isChanged =
-      initial.username !== formData.username ||
-      initial.bio !== formData.bio ||
-      initial.showLastSeen !== formData.showLastSeen ||
-      initial.showPhoto !== formData.showPhoto;
-
-    setIsDirty(isChanged);
-  }, [formData]);
-
-  const [toast, setToast] = useState(null);
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const { setUser } = useUser();
-  const navigate = useNavigate();
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+  // Helper to check if form is dirty (simple shallow comparison)
+  const isDirty =
+    initialRef.current &&
+    (form.username !== initialRef.current.username ||
+      form.bio !== initialRef.current.bio ||
+      form.showLastSeen !== initialRef.current.showLastSeen);
 
   useEffect(() => {
     if (!token) {
       navigate("/");
       return;
     }
-    fetchProfile();
-  }, [token]);
+    loadProfile();
+  }, []);
 
-  const fetchProfile = async () => {
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  async function loadProfile() {
     try {
       const res = await fetch(`${API_BASE}/auth/me`, { headers: authHeader });
       const data = await res.json();
-      if (data.user) {
-        const initialState = {
-          name: data.user.username || "",
-          username: data.user.username || "",
-          email: data.user.email || "",
-          bio: data.user.bio || "",
-          showLastSeen: data.user.showLastSeen ?? true,
-          showPhoto: data.user.showPhoto ?? true,
-          photoUrl: data.user.photoUrl || ""
-        };
-        setFormData(initialState);
-        initialDataRef.current = initialState;
-      }
-    } catch (e) {
-      showToast("Failed to load profile", "error");
+      const state = {
+        username: data.user.username || "",
+        email: data.user.email || "",
+        bio: data.user.bio || "",
+        showLastSeen: data.user.showLastSeen ?? true,
+        showPhoto: data.user.showPhoto ?? true,
+        photoUrl: data.user.photoUrl || "",
+      };
+      setForm(state);
+      initialRef.current = state;
+    } catch {
+      showToast("FAILED TO LOAD PROFILE DATA", "error");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleSave = async () => {
-    if (!isDirty) return;
+  async function saveProfile() {
     setSaving(true);
+    // Dismiss previous confirmation
+    setConfirm(null); 
     try {
-      const res = await fetch(`${API_BASE}/users/me`, {
+      await fetch(`${API_BASE}/users/me`, {
         method: "PUT",
         headers: { ...authHeader, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: formData.username,
-          bio: formData.bio,
-          showLastSeen: formData.showLastSeen,
-          showPhoto: formData.showPhoto
-        }),
+        body: JSON.stringify(form),
       });
-
-      if (!res.ok) throw new Error("Failed to update");
-
-      const updatedData = await res.json();
-
-      // Update global context
-      const meRes = await fetch(`${API_BASE}/auth/me`, { headers: authHeader });
-      const meData = await meRes.json();
-      setUser(meData.user);
-
-      // Update initial ref to new state so dirty check resets
-      initialDataRef.current = { ...formData };
-      setIsDirty(false);
-
-      showToast("Profile saved successfully");
-    } catch (e) {
-      showToast(e.message || "Failed to save", "error");
+      initialRef.current = form;
+      showToast("PROFILE UPDATED SUCCESSFULLY");
+    } catch {
+      showToast("UPDATE FAILED", "error");
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const uploadData = new FormData();
-    uploadData.append("photo", file);
-
-    try {
-      const res = await fetch(`${API_BASE}/users/me/photo`, {
-        method: "POST",
-        headers: authHeader,
-        body: uploadData,
-      });
-
-      if (!res.ok) throw new Error("Upload failed");
-
-      const data = await res.json();
-      setFormData(prev => ({ ...prev, photoUrl: data.photoUrl }));
-
-      // Sync initial data's photoUrl too so it doesn't trigger dirty state incorrectly if other fields match
-      // Or simply refetch. Let's refetch to be safe/clean.
-      // Update global context
-      const meRes = await fetch(`${API_BASE}/auth/me`, { headers: authHeader });
-      const meData = await meRes.json();
-      setUser(meData.user);
-
-      showToast("Photo updated");
-    } catch (e) {
-      showToast("Failed to upload photo", "error");
-    }
-  };
-
-  const handleRemovePhoto = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/users/me/photo`, {
-        method: "DELETE",
-        headers: authHeader,
-      });
-
-      if (!res.ok) throw new Error("Remove failed");
-
-      setFormData(prev => ({ ...prev, photoUrl: "" }));
-
-      // Update global context
-      const meRes = await fetch(`${API_BASE}/auth/me`, { headers: authHeader });
-      const meData = await meRes.json();
-      setUser(meData.user);
-
-      showToast("Photo removed");
-    } catch (e) {
-      showToast("Failed to remove photo", "error");
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
+  async function logout() {
+    localStorage.clear();
     setUser(null);
     navigate("/");
-  };
+  }
 
-  const handleDeleteAccount = async () => {
-    if (!window.confirm("Are you surely you want to delete your account? This cannot be undone.")) return;
-
+  async function deleteAccount() {
     try {
-      const res = await fetch(`${API_BASE}/users/me`, {
+      await fetch(`${API_BASE}/users/me`, {
         method: "DELETE",
         headers: authHeader,
       });
-      if (res.ok) {
-        handleLogout();
-      } else {
-        throw new Error("Delete failed");
-      }
-    } catch (e) {
-      showToast("Failed to delete account", "error");
+      logout();
+    } catch {
+      showToast("DELETE FAILED", "error");
     }
-  };
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[--color-seco] flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="h-12 w-12 rounded-full bg-white/20"></div>
-          <div className="h-4 w-32 rounded bg-white/20"></div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+        <span className="text-xs font-bold uppercase tracking-widest text-neutral-400 animate-pulse">
+          Retrieving Data...
+        </span>
       </div>
     );
   }
 
-  const effectivePhotoSrc = formData.photoUrl
-    ? `${BACKEND_URL}${formData.photoUrl}`
-    : initialsAvatar(formData.username);
+  const photoSrc = form.photoUrl
+    ? `${BACKEND_URL}${form.photoUrl}`
+    : initialsAvatar(form.username);
 
   return (
-    <div className="min-h-screen bg-[--color-seco] text-gray-900 pb-20 font-sans">
+    <div className="min-h-screen bg-neutral-50 px-4 pb-32 pt-8 dark:bg-neutral-950 transition-colors duration-300">
       <Toast toast={toast} onClose={() => setToast(null)} />
+      <ConfirmModal {...confirm} onCancel={() => setConfirm(null)} />
 
-      <main className="max-w-lg mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10">
-
-        {/* Minimal Header */}
-        <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tighter text-gray-100">Profile</h1>
-          <p className="text-gray-500 mt-2 text-sm">Manage your personal information</p>
+      <main className="mx-auto max-w-lg space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-center border-b border-neutral-200 pb-6 dark:border-neutral-800">
+           <h1 className="font-orbitron text-xl font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+            User Profile
+          </h1>
         </div>
 
-        {/* Profile Card */}
-        <div className="flex flex-col items-center">
-          <div className="relative group">
-            <div className="w-32 h-32 rounded-full p-1 bg-white ring-2 ring-gray-100 shadow-sm relative z-10">
-              <img
-                src={effectivePhotoSrc}
-                alt="Profile"
-                className="w-full h-full rounded-full object-cover bg-gray-50"
-              />
-            </div>
-
-            <label className="absolute bottom-0 right-0 z-20 p-2.5 rounded-full bg-gray-900 text-white shadow-lg cursor-pointer hover:bg-[--color-btn] transition-all transform active:scale-90 hover:scale-105">
-              <CameraIcon className="w-5 h-5" />
-              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-            </label>
-
-            {formData.photoUrl && (
-              <button
-                onClick={handleRemovePhoto}
-                className="absolute bottom-0 left-0 z-20 p-2.5 rounded-full bg-white text-rose-500 shadow-md ring-1 ring-gray-200 hover:bg-rose-50 transition-all transform active:scale-90 hover:scale-105"
-                title="Remove photo"
-              >
-                <TrashIcon className="w-5 h-5" />
-              </button>
-            )}
+        {/* Avatar Section */}
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative h-32 w-32 border border-neutral-200 bg-neutral-100 p-1 dark:border-neutral-800 dark:bg-neutral-900">
+            <img
+              src={photoSrc}
+              alt="Avatar"
+              className="h-full w-full object-cover"
+            />
+            <button className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center border border-neutral-900 bg-white text-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-white dark:bg-neutral-900 dark:text-white dark:hover:bg-white dark:hover:text-neutral-900 transition-colors">
+               <PencilSquareIcon className="h-4 w-4" />
+            </button>
           </div>
-
-          <div className="mt-4 text-center">
-            <h2 className="text-xl font-bold text-gray-100">{formData.username || "User"}</h2>
-            <p className="text-gray-400 text-sm">{formData.email}</p>
+          <div className="text-center">
+            <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-400">ID: {form.username}</p>
           </div>
         </div>
 
-        {/* Personal Details */}
-        <div className="space-y-6">
-          <Section title="About You" icon={UserCircleIcon}>
-            <div className="space-y-5">
-              <InputGroup
-                label="Display Name"
-                value={formData.username}
-                onChange={(v) => setFormData({ ...formData, username: v })}
-                icon={UserCircleIcon}
-                placeholder="How should we call you?"
-              />
-              <InputGroup
-                label="Bio"
-                value={formData.bio}
-                onChange={(v) => setFormData({ ...formData, bio: v })}
-                icon={SparklesIcon}
-                placeholder="Share a little about yourself..."
-                multiline
-              />
-              <div className="opacity-60 pointer-events-none grayscale">
-                <InputGroup
-                  label="Email Address"
-                  value={formData.email}
-                  disabled
-                  icon={EnvelopeIcon}
-                />
-              </div>
-            </div>
-          </Section>
-
-          {/* Privacy */}
-          <Section title="Privacy" icon={ShieldCheckIcon}>
-            <div className="space-y-4">
-              <Toggle
-                label="Show Online Status"
-                checked={formData.showLastSeen}
-                onChange={(v) => setFormData({ ...formData, showLastSeen: v })}
-                icon={EyeIcon}
-              />
-              <div className="h-px bg-gray-100 border-none" />
-              <Toggle
-                label="Public Profile Photo"
-                checked={formData.showPhoto}
-                onChange={(v) => setFormData({ ...formData, showPhoto: v })}
-                icon={UserCircleIcon}
-              />
-            </div>
-          </Section>
+        {/* Form Section */}
+        <div className="space-y-6 border border-neutral-200 bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <Field
+            label="Display Name"
+            value={form.username}
+            onChange={(v) => setForm({ ...form, username: v })}
+            icon={UserCircleIcon}
+          />
+          <Field
+            label="Status / Bio"
+            value={form.bio}
+            multiline
+            onChange={(v) => setForm({ ...form, bio: v })}
+            icon={SparklesIcon}
+          />
+          <Field
+            label="Email Address"
+            value={form.email}
+            disabled
+            icon={EnvelopeIcon}
+          />
+          
+          <div className="pt-2">
+            <Toggle
+              label="Public Online Status"
+              checked={form.showLastSeen}
+              onChange={(v) => setForm({ ...form, showLastSeen: v })}
+            />
+          </div>
         </div>
 
-        {/* Save Button (Conditional) */}
-        <div className={`fixed bottom-6 left-0 right-0 px-4 flex justify-center transition-all duration-500 ${isDirty ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+        {/* Actions */}
+        <div className="flex items-center justify-between pt-4">
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full max-w-sm flex justify-center items-center gap-2 py-4 px-8 rounded-full bg-gray-900 text-white font-bold text-base shadow-2xl shadow-gray-900/30 hover:bg-black transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed backdrop-blur-md"
+            onClick={() =>
+              setConfirm({
+                open: true,
+                title: "TERMINATE SESSION",
+                desc: "Are you sure you want to log out from this device?",
+                confirmText: "LOG OUT",
+                onConfirm: logout,
+              })
+            }
+            className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
           >
-            {saving ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <CheckIcon className="w-5 h-5" />
-            )}
-            Save Changes
-          </button>
-        </div>
-
-        {/* Danger Zone - Minimal */}
-        <div className="flex justify-center gap-6 pt-10 pb-20 opacity-60 hover:opacity-100 transition-opacity">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            <ArrowRightOnRectangleIcon className="w-4 h-4" />
+            <ArrowRightOnRectangleIcon className="h-4 w-4" />
             Sign Out
           </button>
+
           <button
-            onClick={handleDeleteAccount}
-            className="flex items-center gap-2 text-sm font-semibold text-rose-400 hover:text-rose-600 transition-colors"
+            disabled={!isDirty || saving}
+            onClick={() =>
+              setConfirm({
+                open: true,
+                title: "CONFIRM CHANGES",
+                desc: "Overwrite existing profile data with new values?",
+                confirmText: "SAVE CHANGES",
+                onConfirm: saveProfile,
+              })
+            }
+            className="bg-neutral-900 border border-neutral-900 px-6 py-3 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 dark:border-white transition-all"
           >
-            <TrashIcon className="w-4 h-4" />
+            {saving ? "SAVING..." : "SAVE CHANGES"}
+          </button>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="border-t border-dashed border-neutral-300 pt-8 mt-8 dark:border-neutral-800">
+          <button
+            onClick={() =>
+              setConfirm({
+                open: true,
+                title: "DELETE ACCOUNT",
+                desc: "IRREVERSIBLE ACTION: All data associated with this account will be permanently destroyed.",
+                confirmText: "DELETE FOREVER",
+                onConfirm: deleteAccount,
+              })
+            }
+            className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-red-500 hover:text-red-700 transition-colors"
+          >
+            <TrashIcon className="h-4 w-4" />
             Delete Account
           </button>
         </div>
-
       </main>
     </div>
   );

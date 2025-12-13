@@ -1,14 +1,19 @@
 import React from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
-import { IoHomeOutline, IoSettingsOutline } from "react-icons/io5";
-import { MdOutlineExplore } from "react-icons/md";
+import { 
+    HomeIcon, 
+    UsersIcon, 
+    Cog6ToothIcon, 
+    ArrowRightOnRectangleIcon,
+    UserIcon
+} from "@heroicons/react/24/outline";
 
-// Navigation items (without Profile - accessed via profile photo)
+// Navigation items
 const navItems = [
-    { name: 'Home', icon: <IoHomeOutline /> },
-    { name: 'Contacts', icon: <MdOutlineExplore /> },
-    { name: 'Settings', icon: <IoSettingsOutline /> },
+    { name: 'Home', icon: <HomeIcon className="h-5 w-5" />, label: 'DASHBOARD' },
+    { name: 'Contacts', icon: <UsersIcon className="h-5 w-5" />, label: 'DIRECTORY' },
+    { name: 'Settings', icon: <Cog6ToothIcon className="h-5 w-5" />, label: 'SYSTEM' },
 ];
 
 function Sidebar({ active, setActive, isCollapsed = false }) {
@@ -16,7 +21,6 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
     const { user } = useUser();
 
     const handleLogout = () => {
-        // Clear all stored data
         localStorage.clear();
         navigate('/');
     };
@@ -25,37 +29,25 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
         setActive('Profile');
     };
 
-    // Profile photo component - reusable for desktop and mobile
-    const ProfilePhoto = ({ size = 'md', showName = true }) => {
-        // Force small size if collapsed
-        const effectiveSize = isCollapsed ? 'sm' : size;
-        const sizeClasses = effectiveSize === 'sm' ? 'h-8 w-8 text-xs' : 'h-10 w-10 text-sm';
-
+    // Profile photo component - Reusable
+    const ProfilePhoto = ({ size = 'md', isActive }) => {
+        const sizeClass = size === 'sm' ? 'h-8 w-8' : 'h-10 w-10';
+        
         return (
-            <div
+            <div 
                 onClick={handleProfileClick}
-                className={`flex items-center gap-2 cursor-pointer transition-all
-                    ${active === 'Profile' ? 'opacity-100' : 'opacity-80 hover:opacity-100'}
-                    ${isCollapsed ? 'justify-center' : ''}`}
+                className={`cursor-pointer transition-all border ${isActive ? 'border-white' : 'border-neutral-700 hover:border-white'}`}
             >
                 {user?.photoUrl ? (
                     <img
                         src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}${user.photoUrl}`}
                         alt="Profile"
-                        className={`${sizeClasses} shrink-0 rounded-full object-cover border-2 
-                            ${active === 'Profile' ? 'border-sky-400' : 'border-gray-500'}`}
+                        className={`${sizeClass} object-cover`}
                     />
                 ) : (
-                    <div className={`${sizeClasses} shrink-0 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 
-                        flex items-center justify-center font-bold text-white
-                        ${active === 'Profile' ? 'ring-2 ring-sky-400' : ''}`}>
+                    <div className={`${sizeClass} bg-neutral-800 flex items-center justify-center text-white font-bold`}>
                         {user?.username?.[0]?.toUpperCase() || "G"}
                     </div>
-                )}
-                {showName && !isCollapsed && (
-                    <span className={`text-sm truncate max-w-[120px] ${active === 'Profile' ? 'text-sky-400 font-semibold' : 'text-gray-200'}`}>
-                        {user?.username || "Guest"}
-                    </span>
                 )}
             </div>
         );
@@ -63,125 +55,152 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
 
     return (
         <>
-            {/* Desktop Sidebar */}
-            <aside className={`hidden md:flex bg-gray-700 p-4 shadow-lg flex-col sticky top-0 h-screen transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
-                ${isCollapsed ? 'w-20 items-center' : 'w-64'}`}>
-
-                {/* Logo */}
-                <div
+            {/* Desktop Sidebar - Sharp, Industrial */}
+            <aside 
+                className={`hidden md:flex bg-neutral-900 text-white flex-col sticky top-0 h-screen border-r border-neutral-800 transition-all duration-300
+                ${isCollapsed ? 'w-20' : 'w-72'}`}
+            >
+                {/* Logo Area */}
+                <div 
                     onClick={() => setActive('Home')}
-                    className={`text-white font-bitcount flex items-center mb-10 cursor-pointer transition-all duration-300
-                        ${isCollapsed ? 'justify-center h-8' : 'text-4xl'}`}
+                    className={`h-16 flex items-center border-b border-neutral-800 cursor-pointer
+                        ${isCollapsed ? 'justify-center' : 'px-6'}`}
                 >
                     {isCollapsed ? (
-                        <img src="/favicon.ico" alt="Logo" className="h-8 w-8" />
+                        <div className="h-8 w-8 bg-white text-neutral-900 font-orbitron font-bold flex items-center justify-center text-xs">
+                            C
+                        </div>
                     ) : (
-                        'Connect'
+                        <h1 className="font-orbitron text-lg font-bold tracking-widest uppercase">
+                            CONNECT
+                        </h1>
                     )}
                 </div>
 
                 {/* Navigation Items */}
-                <nav className="flex-1 w-full overflow-y-auto overflow-x-hidden">
-                    <ul className="space-y-3">
-                        {navItems.map((item) => (
-                            <li key={item.name}>
-                                <button
-                                    onClick={() => setActive(item.name)}
-                                    title={isCollapsed ? item.name : ''}
-                                    className={`flex items-center w-full px-3 py-3 rounded-lg transition-all 
-                                        ${active === item.name
-                                            ? 'bg-gray-100 text-sky-800 font-semibold shadow-md'
-                                            : 'text-gray-100 hover:bg-gray-600 hover:text-sky-300'
-                                        }
-                                        ${isCollapsed ? 'justify-center' : 'text-left'}
-                                    `}
-                                >
-                                    <span className={`text-2xl shrink-0 ${isCollapsed ? '' : 'mr-3'}`}>{item.icon}</span>
-                                    {!isCollapsed && <span className="truncate">{item.name}</span>}
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
+                <nav className="flex-1 w-full py-6 flex flex-col gap-1">
+                    {navItems.map((item) => {
+                        const isActive = active === item.name;
+                        return (
+                            <button
+                                key={item.name}
+                                onClick={() => setActive(item.name)}
+                                title={isCollapsed ? item.label : ''}
+                                className={`relative flex items-center w-full px-6 py-4 transition-colors group
+                                    ${isActive 
+                                        ? 'bg-neutral-800 text-white' 
+                                        : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                                    }
+                                    ${isCollapsed ? 'justify-center px-0' : ''}
+                                `}
+                            >
+                                {/* Active Indicator Strip */}
+                                {isActive && (
+                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-white" />
+                                )}
+
+                                <span className={`${isActive ? 'text-white' : 'text-neutral-400 group-hover:text-white'}`}>
+                                    {item.icon}
+                                </span>
+
+                                {!isCollapsed && (
+                                    <span className="ml-4 text-xs font-bold uppercase tracking-widest">
+                                        {item.label}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
                 </nav>
 
-                {/* Bottom Section - Profile & Logout */}
-                <div className={`pt-4 border-t border-gray-600 mt-6 w-full ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
-                    <div className="mb-3 w-full">
-                        <ProfilePhoto size="md" showName={true} />
-                    </div>
+                {/* Bottom Section - User Profile */}
+                <div className={`p-4 border-t border-neutral-800 bg-neutral-900`}>
+                    <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center flex-col' : ''}`}>
+                        <ProfilePhoto size="md" isActive={active === 'Profile'} />
+                        
+                        {!isCollapsed && (
+                            <div className="min-w-0 flex-1 cursor-pointer" onClick={handleProfileClick}>
+                                <p className={`text-xs font-bold uppercase truncate ${active === 'Profile' ? 'text-white' : 'text-neutral-400'}`}>
+                                    {user?.username || "Guest User"}
+                                </p>
+                                <p className="text-[10px] text-neutral-600 font-mono uppercase">Online</p>
+                            </div>
+                        )}
 
-                    {!isCollapsed ? (
-                        <button
-                            onClick={handleLogout}
-                            className="w-full bg-gray-600 hover:bg-red-700 text-white py-2 rounded-md font-semibold transition-all shadow-sm"
-                        >
-                            Logout
-                        </button>
-                    ) : (
-                        <button
-                            onClick={handleLogout}
-                            title="Logout"
-                            className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-600 hover:bg-red-700 text-white transition-all shadow-sm"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 pl-0.5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
-                            </svg>
-                        </button>
-                    )}
+                        {!isCollapsed && (
+                            <button 
+                                onClick={handleLogout}
+                                className="p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors border border-transparent hover:border-neutral-700"
+                                title="Logout"
+                            >
+                                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                            </button>
+                        )}
+                        
+                        {isCollapsed && (
+                             <button 
+                                onClick={handleLogout}
+                                className="mt-4 p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors border border-transparent hover:border-neutral-700"
+                                title="Logout"
+                            >
+                                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </aside>
 
-            {/* Mobile Top Header (Unchanged) */}
-            <div className="md:hidden fixed top-0 left-0 w-full bg-gray-700 rounded-b-3xl text-white py-3 shadow-md z-20">
-                <h1
-                    onClick={() => setActive('Home')}
-                    className="text-center text-lg font-bitcount cursor-pointer"
-                >
-                    Connect
-                </h1>
+            {/* Mobile Header - Sharp */}
+            <div className="md:hidden fixed top-0 left-0 w-full bg-neutral-900 text-white border-b border-neutral-800 z-30">
+                <div className="flex items-center justify-center h-14">
+                    <h1 
+                        onClick={() => setActive('Home')}
+                        className="font-orbitron text-lg font-bold tracking-widest uppercase cursor-pointer"
+                    >
+                        Connect
+                    </h1>
+                </div>
             </div>
 
-            {/* Mobile Bottom Nav (Unchanged) */}
-            <nav className="md:hidden fixed bottom-0 rounded-t-2xl left-0 w-full bg-gray-700 flex justify-around items-center py-2 shadow-lg z-10 safe-area-bottom">
-                {navItems.map((item) => (
-                    <button
-                        key={item.name}
-                        onClick={() => setActive(item.name)}
-                        className={`flex flex-col items-center text-xs px-2 transition-all 
-                            ${active === item.name
-                                ? 'text-sky-400 font-semibold'
-                                : 'text-gray-200 hover:text-sky-400'
-                            }`}
-                    >
-                        <span className="text-xl">{item.icon}</span>
-                        <span className="text-[10px] mt-1">{item.name}</span>
-                    </button>
-                ))}
+            {/* Mobile Bottom Nav - Square */}
+            <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-stretch z-30 safe-area-bottom h-16">
+                {navItems.map((item) => {
+                     const isActive = active === item.name;
+                     return (
+                        <button
+                            key={item.name}
+                            onClick={() => setActive(item.name)}
+                            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative
+                                ${isActive ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}
+                            `}
+                        >
+                            {isActive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-white" />}
+                            {item.icon}
+                            <span className="text-[9px] font-bold uppercase tracking-wider">{item.name}</span>
+                        </button>
+                    )
+                })}
 
-                {/* Profile Photo in Bottom Nav */}
+                {/* Profile Tab */}
                 <button
                     onClick={handleProfileClick}
-                    className={`flex flex-col items-center text-xs px-2 transition-all 
-                        ${active === 'Profile'
-                            ? 'text-sky-400 font-semibold'
-                            : 'text-gray-200 hover:text-sky-400'
-                        }`}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative
+                        ${active === 'Profile' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}
+                    `}
                 >
+                    {active === 'Profile' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-white" />}
+                    
+                    {/* Small avatar for mobile tab */}
                     {user?.photoUrl ? (
                         <img
                             src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}${user.photoUrl}`}
                             alt="Profile"
-                            className={`h-6 w-6 rounded-full object-cover border 
-                                ${active === 'Profile' ? 'border-sky-400' : 'border-gray-500'}`}
+                            className={`h-5 w-5 object-cover border ${active === 'Profile' ? 'border-white' : 'border-neutral-600'}`}
                         />
                     ) : (
-                        <div className={`h-6 w-6 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 
-                            flex items-center justify-center text-[10px] font-bold text-white
-                            ${active === 'Profile' ? 'ring-1 ring-sky-400' : ''}`}>
-                            {user?.username?.[0]?.toUpperCase() || "G"}
-                        </div>
+                        <UserIcon className="h-5 w-5" />
                     )}
-                    <span className="text-[10px] mt-1">Profile</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider">PROFILE</span>
                 </button>
             </nav>
         </>
