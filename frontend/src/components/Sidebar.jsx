@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
-import { 
-    HomeIcon, 
-    UsersIcon, 
-    Cog6ToothIcon, 
+import {
+    HomeIcon,
+    UsersIcon,
+    Cog6ToothIcon,
     ArrowRightOnRectangleIcon,
-    UserIcon
+    UserIcon,
+    ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 
 // Navigation items
@@ -16,13 +17,22 @@ const navItems = [
     { name: 'Settings', icon: <Cog6ToothIcon className="h-5 w-5" />, label: 'SYSTEM' },
 ];
 
-function Sidebar({ active, setActive, isCollapsed = false }) {
+function Sidebar({ active, setActive }) {
     const navigate = useNavigate();
     const { user } = useUser();
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-    const handleLogout = () => {
+    const handleLogoutClick = () => {
+        setShowLogoutConfirm(true);
+    };
+
+    const confirmLogout = () => {
         localStorage.clear();
         navigate('/');
+    };
+
+    const cancelLogout = () => {
+        setShowLogoutConfirm(false);
     };
 
     const handleProfileClick = () => {
@@ -32,9 +42,9 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
     // Profile photo component - Reusable
     const ProfilePhoto = ({ size = 'md', isActive }) => {
         const sizeClass = size === 'sm' ? 'h-8 w-8' : 'h-10 w-10';
-        
+
         return (
-            <div 
+            <div
                 onClick={handleProfileClick}
                 className={`cursor-pointer transition-all border ${isActive ? 'border-white' : 'border-neutral-700 hover:border-white'}`}
             >
@@ -55,26 +65,20 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
 
     return (
         <>
-            {/* Desktop Sidebar - Sharp, Industrial */}
-            <aside 
-                className={`hidden md:flex bg-neutral-900 text-white flex-col sticky top-0 h-screen border-r border-neutral-800 transition-all duration-300
-                ${isCollapsed ? 'w-20' : 'w-72'}`}
+            {/* Desktop Sidebar - Always Collapsed */}
+            <aside
+                className="hidden md:flex bg-neutral-900 text-white flex-col sticky top-0 h-screen border-r border-neutral-800 transition-all duration-300 w-20"
             >
                 {/* Logo Area */}
-                <div 
+                <div
                     onClick={() => setActive('Home')}
-                    className={`h-16 flex items-center border-b border-neutral-800 cursor-pointer
-                        ${isCollapsed ? 'justify-center' : 'px-6'}`}
+                    className="h-16 flex items-center justify-center border-b border-neutral-800 cursor-pointer"
                 >
-                    {isCollapsed ? (
-                        <div className="h-8 w-8 bg-white text-neutral-900 font-orbitron font-bold flex items-center justify-center text-xs">
-                            C
-                        </div>
-                    ) : (
-                        <h1 className="font-orbitron text-lg font-bold tracking-widest uppercase">
-                            CONNECT
-                        </h1>
-                    )}
+                    <img
+                        src="/favicon.ico"
+                        alt="Logo"
+                        className="h-8 w-8 opacity-80 hover:opacity-100 transition-opacity"
+                    />
                 </div>
 
                 {/* Navigation Items */}
@@ -85,13 +89,12 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
                             <button
                                 key={item.name}
                                 onClick={() => setActive(item.name)}
-                                title={isCollapsed ? item.label : ''}
-                                className={`relative flex items-center w-full px-6 py-4 transition-colors group
-                                    ${isActive 
-                                        ? 'bg-neutral-800 text-white' 
+                                title={item.label}
+                                className={`relative flex items-center justify-center w-full py-4 transition-colors group
+                                    ${isActive
+                                        ? 'bg-neutral-800 text-white'
                                         : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
                                     }
-                                    ${isCollapsed ? 'justify-center px-0' : ''}
                                 `}
                             >
                                 {/* Active Indicator Strip */}
@@ -102,50 +105,23 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
                                 <span className={`${isActive ? 'text-white' : 'text-neutral-400 group-hover:text-white'}`}>
                                     {item.icon}
                                 </span>
-
-                                {!isCollapsed && (
-                                    <span className="ml-4 text-xs font-bold uppercase tracking-widest">
-                                        {item.label}
-                                    </span>
-                                )}
                             </button>
                         );
                     })}
                 </nav>
 
                 {/* Bottom Section - User Profile */}
-                <div className={`p-4 border-t border-neutral-800 bg-neutral-900`}>
-                    <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center flex-col' : ''}`}>
+                <div className="p-4 border-t border-neutral-800 bg-neutral-900">
+                    <div className="flex items-center justify-center flex-col gap-4">
                         <ProfilePhoto size="md" isActive={active === 'Profile'} />
-                        
-                        {!isCollapsed && (
-                            <div className="min-w-0 flex-1 cursor-pointer" onClick={handleProfileClick}>
-                                <p className={`text-xs font-bold uppercase truncate ${active === 'Profile' ? 'text-white' : 'text-neutral-400'}`}>
-                                    {user?.username || "Guest User"}
-                                </p>
-                                <p className="text-[10px] text-neutral-600 font-mono uppercase">Online</p>
-                            </div>
-                        )}
 
-                        {!isCollapsed && (
-                            <button 
-                                onClick={handleLogout}
-                                className="p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors border border-transparent hover:border-neutral-700"
-                                title="Logout"
-                            >
-                                <ArrowRightOnRectangleIcon className="h-5 w-5" />
-                            </button>
-                        )}
-                        
-                        {isCollapsed && (
-                             <button 
-                                onClick={handleLogout}
-                                className="mt-4 p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors border border-transparent hover:border-neutral-700"
-                                title="Logout"
-                            >
-                                <ArrowRightOnRectangleIcon className="h-5 w-5" />
-                            </button>
-                        )}
+                        <button
+                            onClick={handleLogoutClick}
+                            className="p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors border border-transparent hover:border-neutral-700 rounded-lg"
+                            title="Logout"
+                        >
+                            <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                        </button>
                     </div>
                 </div>
             </aside>
@@ -153,7 +129,7 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
             {/* Mobile Header - Sharp */}
             <div className="md:hidden fixed top-0 left-0 w-full bg-neutral-900 text-white border-b border-neutral-800 z-30">
                 <div className="flex items-center justify-center h-14">
-                    <h1 
+                    <h1
                         onClick={() => setActive('Home')}
                         className="font-orbitron text-lg font-bold tracking-widest uppercase cursor-pointer"
                     >
@@ -165,8 +141,8 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
             {/* Mobile Bottom Nav - Square */}
             <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-stretch z-30 safe-area-bottom h-16">
                 {navItems.map((item) => {
-                     const isActive = active === item.name;
-                     return (
+                    const isActive = active === item.name;
+                    return (
                         <button
                             key={item.name}
                             onClick={() => setActive(item.name)}
@@ -189,7 +165,7 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
                     `}
                 >
                     {active === 'Profile' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-white" />}
-                    
+
                     {/* Small avatar for mobile tab */}
                     {user?.photoUrl ? (
                         <img
@@ -203,6 +179,43 @@ function Sidebar({ active, setActive, isCollapsed = false }) {
                     <span className="text-[9px] font-bold uppercase tracking-wider">PROFILE</span>
                 </button>
             </nav>
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-sm border border-neutral-700 bg-neutral-900 p-6 shadow-2xl">
+                        <div className="flex flex-col items-center gap-4 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-900/20 text-red-500">
+                                <ExclamationTriangleIcon className="h-6 w-6" />
+                            </div>
+
+                            <div>
+                                <h3 className="font-orbitron text-lg font-bold uppercase text-white">
+                                    Confirm Logout
+                                </h3>
+                                <p className="mt-2 text-sm text-neutral-400">
+                                    Are you sure you want to end your session? You will be redirected to the login screen.
+                                </p>
+                            </div>
+
+                            <div className="mt-4 flex w-full gap-3">
+                                <button
+                                    onClick={cancelLogout}
+                                    className="flex-1 border border-neutral-700 bg-transparent py-2 text-sm font-bold uppercase text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmLogout}
+                                    className="flex-1 border border-red-900 bg-red-900/20 py-2 text-sm font-bold uppercase text-red-500 hover:bg-red-900/40 hover:text-red-400 transition-colors"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

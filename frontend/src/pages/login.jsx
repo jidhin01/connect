@@ -48,7 +48,7 @@ function Login() {
   }
 
   async function handleSignUp() {
-    if (!username || !email || !password) {
+    if (!email || !password) {
       setMessage('All fields are required.');
       return;
     }
@@ -57,7 +57,6 @@ function Login() {
     setMessage('');
     try {
       await axios.post(`${API}/api/auth/register`, {
-        username,
         email,
         password,
       });
@@ -75,15 +74,14 @@ function Login() {
     setMessage('');
     setEmail('');
     setPassword('');
-    setUsername('');
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 dark:bg-neutral-950 transition-colors duration-300">
-      
+
       {/* Main Card Container - Sharp Edges */}
       <div className="w-full max-w-md bg-white p-8 sm:p-10 border border-neutral-200 shadow-sm dark:bg-neutral-900 dark:border-neutral-800">
-        
+
         {/* Header Section */}
         <div className="mb-10">
           <h1 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white font-orbitron">
@@ -100,11 +98,10 @@ function Login() {
         {/* Message Alert - Sharp Edges */}
         {message && (
           <div
-            className={`mb-8 flex items-center border-l-4 px-4 py-3 text-sm font-medium ${
-              message.includes('created')
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                : 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-            }`}
+            className={`mb-8 flex items-center border-l-4 px-4 py-3 text-sm font-medium ${message.includes('created')
+              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+              : 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+              }`}
           >
             {message}
           </div>
@@ -118,34 +115,19 @@ function Login() {
           }}
           className="space-y-6"
         >
-          {/* Username Input (Sign Up Only) */}
-          {isSignUpMode && (
-            <div className="group">
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white transition-colors">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full border border-neutral-300 bg-transparent px-4 py-3.5 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-0 dark:border-neutral-700 dark:text-white dark:focus:border-white transition-all"
-                placeholder="ENTER USERNAME"
-              />
-            </div>
-          )}
 
-          {/* Email Input */}
+          {/* Email / Username Input */}
           <div className="group">
             <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white transition-colors">
-              Email Address
+              {isSignUpMode ? 'Email Address' : 'Username or Email'}
             </label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full border border-neutral-300 bg-transparent px-4 py-3.5 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-0 dark:border-neutral-700 dark:text-white dark:focus:border-white transition-all"
-              placeholder="NAME@EXAMPLE.COM"
+              placeholder={isSignUpMode ? "NAME@EXAMPLE.COM" : "USERNAME OR EMAIL"}
             />
           </div>
 
@@ -187,8 +169,8 @@ function Login() {
               {loading
                 ? 'PROCESSING...'
                 : isSignUpMode
-                ? 'CREATE ACCOUNT'
-                : 'SIGN IN'}
+                  ? 'CREATE ACCOUNT'
+                  : 'SIGN IN'}
             </button>
 
             <button

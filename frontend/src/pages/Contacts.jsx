@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
+import ContactProfile from "../components/ContactProfile";
 
 /* ---------- Config ---------- */
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -83,8 +84,8 @@ function Toast({ toast, onClose }) {
     toast.type === "success"
       ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/10 dark:text-emerald-400"
       : toast.type === "error"
-      ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-400"
-      : "border-neutral-500 bg-neutral-50 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300";
+        ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-400"
+        : "border-neutral-500 bg-neutral-50 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300";
 
   return (
     <div className={`fixed top-4 right-4 z-50 flex min-w-[300px] items-center gap-3 border-l-4 p-4 shadow-xl dark:border-r dark:border-t dark:border-b dark:border-neutral-800 dark:bg-neutral-900 ${typeStyles}`}>
@@ -95,15 +96,16 @@ function Toast({ toast, onClose }) {
   );
 }
 
-export default function Contacts() {
+export default function Contacts({ isSidebarCollapsed, setSidebarCollapsed }) {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [contacts, setContacts] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [emailInput, setEmailInput] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
   const [toast, setToast] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
 
   const [username, setUsername] = useState("");
   const [userPhoto, setUserPhoto] = useState(null);
@@ -177,9 +179,9 @@ export default function Contacts() {
     }
   }
 
-  async function lookupUserByEmail(email) {
+  async function lookupUserByUsername(uName) {
     const res = await fetch(
-      `${API_BASE}/auth/by-email?email=${encodeURIComponent(email)}`
+      `${API_BASE}/auth/by-username?username=${encodeURIComponent(uName)}`
     );
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -208,26 +210,27 @@ export default function Contacts() {
 
   async function handleAddContact() {
     try {
-      const email = emailInput.trim().toLowerCase();
-      if (!email) return;
+      const uName = usernameInput.trim();
+      if (!uName) return;
 
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        showToast("INVALID EMAIL FORMAT", "error");
+      // Basic username validation (non-empty)
+      if (uName.length < 3) {
+        showToast("USERNAME TOO SHORT", "error");
         return;
       }
 
-      const myEmail = localStorage.getItem("email");
-      if (myEmail && myEmail.toLowerCase() === email) {
+      const myUsername = localStorage.getItem("username");
+      if (myUsername && myUsername.toLowerCase() === uName.toLowerCase()) {
         showToast("CANNOT ADD SELF", "error");
         return;
       }
 
-      const user = await lookupUserByEmail(email);
+      const user = await lookupUserByUsername(uName);
       await createOrGetOneToOne(user._id);
       await reloadConversations();
       setShowModal(false);
-      setEmailInput("");
-      showToast(`CONNECTED: ${user.username || user.email}`, "success");
+      setUsernameInput("");
+      showToast(`CONNECTED: ${user.username}`, "success");
     } catch (e) {
       showToast(e.message || "OPERATION FAILED", "error");
     }
@@ -237,6 +240,24 @@ export default function Contacts() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   }
+
+  function handleMessage(contact) {
+    localStorage.setItem("activeConversationId", contact.id);
+    localStorage.setItem("activeConversationName", contact.name);
+    localStorage.setItem("activeConversationAvatar", contact.avatar);
+    window.location.href = "/logined";
+  }
+
+  const handleContactSelect = (contact) => {
+    if (selectedContact?.id === contact.id) return;
+    setSelectedContact(contact);
+    if (setSidebarCollapsed) setSidebarCollapsed(true);
+  };
+
+  const handleCloseProfile = () => {
+    setSelectedContact(null);
+    if (setSidebarCollapsed) setSidebarCollapsed(false);
+  };
 
   const filtered = useMemo(() => {
     const q = lower(query.trim());
@@ -250,7 +271,7 @@ export default function Contacts() {
     : initialAvatarFromLetter(topLetter);
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white transition-colors duration-300 relative">
+    <div className="flex h-full overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white transition-colors duration-300 relative">
       <Toast toast={toast} onClose={() => setToast(null)} />
 
       {/* Add Contact Modal - Sharp Edges */}
@@ -265,16 +286,16 @@ export default function Contacts() {
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="px-6 py-6">
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                User Email
+                Username
               </label>
               <input
-                type="email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                placeholder="USER@EXAMPLE.COM"
+                type="text"
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                placeholder="ENTER USERNAME"
                 className="w-full border border-neutral-300 bg-transparent px-4 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white"
               />
             </div>
@@ -288,7 +309,7 @@ export default function Contacts() {
               </button>
               <button
                 onClick={handleAddContact}
-                className="bg-neutral-900 border border-neutral-900 px-4 py-2 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white transition-all"
+                className="bg-neutral-900 border border-neutral-900 px-4 py-2 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-neutral-white dark:border-white transition-all"
               >
                 Add User
               </button>
@@ -297,109 +318,131 @@ export default function Contacts() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/95">
-        <div className="mx-auto max-w-4xl px-4 py-4">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-10 overflow-hidden border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800">
-                <img
-                  alt={username || "me"}
-                  src={effectivePhotoSrc}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div>
-                <h1 className="font-orbitron text-xl font-bold tracking-tight uppercase text-neutral-900 dark:text-white">
-                  Contacts
-                </h1>
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-                  Directory Listing
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Search + Actions */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="relative flex-1 group">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="SEARCH DATABASE..."
-                className="w-full border border-neutral-300 bg-transparent py-2.5 pl-10 pr-3 text-sm font-medium outline-none transition-colors focus:border-neutral-900 dark:border-neutral-700 dark:text-white dark:focus:border-white"
+      {/* Left Sidebar (List) */}
+      <div
+        className={`flex h-full flex-col border-r border-neutral-200 bg-white transition-all duration-300 dark:border-neutral-800 dark:bg-neutral-950 
+        ${selectedContact ? "hidden md:flex w-full md:w-80 lg:w-96" : "w-full max-w-4xl mx-auto md:w-80 md:mx-0 lg:w-96"}`}
+      >
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-neutral-200 px-4 dark:border-neutral-800">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 border border-neutral-200 bg-neutral-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
+              <img
+                alt={username || "me"}
+                src={effectivePhotoSrc}
+                className="h-full w-full object-cover"
               />
             </div>
-            
+            <div>
+              <h1 className="font-orbitron text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+                CONTACTS
+              </h1>
+            </div>
+          </div>
+          <div className="flex gap-2">
             <button
-              className="inline-flex items-center justify-center gap-2 border border-neutral-300 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-neutral-900 hover:bg-neutral-50 hover:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white dark:hover:border-white dark:hover:bg-neutral-800 transition-all"
               onClick={() => setShowModal(true)}
+              className="flex h-8 w-8 items-center justify-center border border-neutral-200 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+              title="Add Contact"
             >
-              <UserPlusIcon className="h-4 w-4" />
-              <span>Add New</span>
+              <UserPlusIcon className="h-4 w-4 text-neutral-500" />
             </button>
           </div>
+        </header>
 
-          {/* Tabs - Industrial Style */}
-          <div className="mt-6 flex border-b border-neutral-200 dark:border-neutral-800">
-            {tabs.map((t) => {
-              const active = activeTab === t.key;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveTab(t.key)}
-                  className={`px-6 py-2 text-xs font-bold uppercase tracking-widest transition-all ${
-                    active
-                      ? "border-b-2 border-neutral-900 text-neutral-900 dark:border-white dark:text-white"
-                      : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+        {/* Search & Tabs */}
+        <div className="flex flex-col gap-4 border-b border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+          <div className="relative group">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-neutral-900 dark:group-focus-within:text-white" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="SEARCH DATABASE..."
+              className="w-full border border-neutral-300 bg-white py-2 pl-9 pr-3 text-xs font-bold uppercase tracking-wide outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white dark:focus:border-white"
+            />
+          </div>
+
+          <div className="flex gap-4">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === t.key
+                  ? "text-neutral-900 underline underline-offset-4 dark:text-white"
+                  : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                   }`}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
-      </header>
 
-      {/* Content */}
-      <main className="mx-auto max-w-4xl px-4 py-6">
-        {loading && (
-          <div className="py-12 text-center text-xs font-bold uppercase text-neutral-400 animate-pulse">
-            Retrieving Data...
-          </div>
-        )}
-        
-        {!!err && !loading && (
-          <div className="border border-red-200 bg-red-50 p-4 text-center text-xs font-bold uppercase text-red-600 dark:border-red-900 dark:bg-red-900/10 dark:text-red-400">
-            System Error: {err}
-          </div>
-        )}
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <div className="py-8 text-center text-xs font-bold uppercase text-neutral-400 animate-pulse">
+              Retrieving Data...
+            </div>
+          )}
+          {!!err && !loading && (
+            <div className="p-4 text-center text-xs text-red-600 dark:text-red-400">
+              {err}
+            </div>
+          )}
 
-        {!loading && !err && (
-          <div className="space-y-3 pb-24">
-            {filtered.map((c) => (
-              <ContactRow key={c.id} contact={c} myId={myId} />
-            ))}
-            {filtered.length === 0 && (
-              <EmptyState
-                query={query}
-                onAddClick={() => setShowModal(true)}
-              />
-            )}
+          {!loading && !err && (
+            <div className="space-y-0">
+              {filtered.map((c) => (
+                <ContactRow
+                  key={c.id}
+                  contact={c}
+                  myId={myId}
+                  onClick={() => handleContactSelect(c)}
+                  isActive={selectedContact?.id === c.id}
+                />
+              ))}
+              {filtered.length === 0 && (
+                <EmptyState
+                  query={query}
+                  onAddClick={() => setShowModal(true)}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right Side (Profile or System Idle) */}
+      {selectedContact ? (
+        <div className="fixed inset-0 z-50 flex h-full w-full flex-col bg-neutral-50 md:relative md:z-0 dark:bg-neutral-950">
+          <ContactProfile
+            contact={selectedContact}
+            onClose={handleCloseProfile}
+            onMessage={handleMessage}
+          />
+        </div>
+      ) : (
+        /* Empty State for Split View */
+        <div className="hidden flex-1 items-center justify-center bg-neutral-100 md:flex dark:bg-neutral-900">
+          <div className="flex flex-col items-center border border-dashed border-neutral-300 p-12 dark:border-neutral-700">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-800">
+              <ChatBubbleOvalLeftIcon className="h-8 w-8 text-neutral-400" />
+            </div>
+            <h2 className="mb-2 font-orbitron text-lg font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+              System Idle
+            </h2>
+            <p className="max-w-xs text-center text-xs font-mono text-neutral-500 dark:text-neutral-400">
+              Select a secure channel from the left directory to initiate communication.
+            </p>
           </div>
-        )}
-      </main>
-      
-      {/* Mobile spacer */}
-      <div className="h-16 md:hidden" />
+        </div>
+      )}
     </div>
   );
 }
 
-function ContactRow({ contact, myId }) {
+function ContactRow({ contact, myId, onClick, isActive }) {
   const otherUser = useMemo(() => {
     if (contact._raw.isGroup) return null;
     return contact._raw.participants.find(
@@ -409,13 +452,9 @@ function ContactRow({ contact, myId }) {
 
   return (
     <div
-      className="group flex cursor-pointer items-center justify-between border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-400 hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600"
-      onClick={() => {
-        localStorage.setItem("activeConversationId", contact.id);
-        localStorage.setItem("activeConversationName", contact.name);
-        localStorage.setItem("activeConversationAvatar", contact.avatar);
-        window.location.href = "/chat";
-      }}
+      className={`group flex cursor-pointer items-center justify-between border-b border-neutral-100 p-4 transition-all hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900
+      ${isActive ? "bg-neutral-100 dark:bg-neutral-900" : "bg-white dark:bg-neutral-950"}`}
+      onClick={onClick}
     >
       <div className="flex items-center gap-4">
         <div className="relative">
@@ -423,14 +462,14 @@ function ContactRow({ contact, myId }) {
           <img
             src={contact.avatar}
             alt={toStr(contact.name)}
-            className="h-12 w-12 border border-neutral-200 object-cover dark:border-neutral-700"
+            className="h-10 w-10 border border-neutral-200 object-cover dark:border-neutral-700"
           />
           <StatusSquare status={contact.status} />
         </div>
-        
+
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
-            <span className="font-bold uppercase tracking-tight text-neutral-900 dark:text-white">
+            <span className={`font-bold uppercase tracking-tight ${isActive ? "text-neutral-900 dark:text-white" : "text-neutral-700 dark:text-neutral-300"}`}>
               {toStr(contact.name)}
             </span>
             {contact.favorite && (
@@ -438,19 +477,21 @@ function ContactRow({ contact, myId }) {
             )}
           </div>
           {otherUser?.email && (
-            <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400">
+            <span className="font-mono text-[10px] text-neutral-500 dark:text-neutral-400">
               {toStr(otherUser.email)}
             </span>
           )}
         </div>
       </div>
 
+      {/* 
       <button
         title="Open Chat"
-        className="flex h-9 w-9 items-center justify-center border border-neutral-200 text-neutral-400 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-neutral-700 dark:hover:border-white dark:hover:bg-white dark:hover:text-neutral-900 transition-all"
+        className="flex h-8 w-8 items-center justify-center border border-neutral-200 text-neutral-400 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white dark:border-neutral-700 dark:hover:border-white dark:hover:bg-white dark:hover:text-neutral-900 transition-all"
       >
-        <ChatBubbleOvalLeftIcon className="h-5 w-5" />
+        <ChatBubbleOvalLeftIcon className="h-4 w-4" />
       </button>
+      */}
     </div>
   );
 }
@@ -464,7 +505,7 @@ function StatusSquare({ status }) {
   };
   return (
     <div
-      className={`absolute -bottom-1 -right-1 h-3 w-3 border border-white dark:border-neutral-900 ${map[status] || "bg-neutral-300"}`}
+      className={`absolute -bottom-1 -right-1 h-3 w-3 border border-white dark:border-neutral-950 ${map[status] || "bg-neutral-300"}`}
       title={status.toUpperCase()}
     />
   );
@@ -472,24 +513,21 @@ function StatusSquare({ status }) {
 
 function EmptyState({ query, onAddClick }) {
   const msg = query
-        ? `NO MATCHES FOUND FOR "${query}"`
-        : "DATABASE EMPTY. INITIALIZE NEW CONNECTION.";
-  
+    ? `NO MATCHES FOUND FOR "${query}"`
+    : "DATABASE EMPTY. INITIALIZE NEW CONNECTION.";
+
   return (
-    <div className="flex flex-col items-center justify-center py-20 border border-dashed border-neutral-300 dark:border-neutral-800">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/50">
-        <UserPlusIcon className="h-8 w-8 text-neutral-400" />
+    <div className="flex flex-col items-center justify-center py-12 opacity-50">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center border border-neutral-300 dark:border-neutral-700">
+        <UserPlusIcon className="h-5 w-5 text-neutral-400" />
       </div>
-      <h3 className="mb-1 text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
-        No Contacts
-      </h3>
-      <p className="mb-6 text-xs font-mono text-neutral-500 dark:text-neutral-400 text-center max-w-xs">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 text-center px-4">
         {msg}
-      </p>
+      </span>
       {!query && (
         <button
           onClick={onAddClick}
-          className="bg-neutral-900 px-6 py-3 text-xs font-bold uppercase text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+          className="mt-4 bg-neutral-900 px-4 py-2 text-[10px] font-bold uppercase text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
         >
           Add Contact
         </button>

@@ -34,21 +34,21 @@ const toStr = (v) => (v == null ? "" : String(v));
 /* ---------- Toast ---------- */
 function Toast({ toast, onClose }) {
   if (!toast) return null;
-  
+
   // Minimalist border-based styling instead of soft backgrounds
   const typeStyles =
     toast.type === "success"
       ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
       : toast.type === "error"
-      ? "border-red-500 text-red-600 dark:text-red-400"
-      : "border-neutral-500 text-neutral-600 dark:text-neutral-400";
+        ? "border-red-500 text-red-600 dark:text-red-400"
+        : "border-neutral-500 text-neutral-600 dark:text-neutral-400";
 
   return (
     <div className={`fixed top-4 right-4 z-50 min-w-[300px] border-l-4 bg-white p-4 shadow-xl dark:bg-neutral-900 dark:border-r dark:border-t dark:border-b dark:border-neutral-800 ${typeStyles}`}>
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm font-medium">{toast.msg}</span>
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100"
         >
           Dismiss
@@ -233,6 +233,7 @@ function ChangePasswordDialog({ open, onClose, onSuccess, apiBase, authHeader, s
 
 /* ---------- Main Component ---------- */
 export default function Settings() {
+  const [activeTab, setActiveTab] = useState(null);
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = "info", ms = 2000) => {
     setToast({ msg, type });
@@ -240,34 +241,96 @@ export default function Settings() {
     showToast._t = window.setTimeout(() => setToast(null), ms);
   };
 
+  const navItems = [
+    { id: "account", label: "Identity", icon: KeyIcon, component: <AccountSection showToast={showToast} /> },
+    { id: "privacy", label: "Privacy Protocols", icon: ShieldCheckIcon, component: <PrivacySecuritySection /> },
+    { id: "interface", label: "Interface", icon: PaintBrushIcon, component: <ChatsSection /> },
+    { id: "alerts", label: "Alerts", icon: BellIcon, component: <NotificationsSection /> },
+    { id: "system", label: "System", icon: QuestionMarkCircleIcon, component: <HelpAboutSection /> },
+    { id: "danger", label: "Danger Zone", icon: TrashIcon, component: <DangerZone showToast={showToast} />, danger: true },
+  ];
+
+  const activeItem = navItems.find(i => i.id === activeTab);
+
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white transition-colors duration-300">
+    <div className="flex h-full overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white transition-colors duration-300 relative">
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Header - Sharp Edges */}
-      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/95">
-        <div className="mx-auto max-w-3xl px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center border border-neutral-200 bg-neutral-100 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-400">
-                 <Cog6ToothIcon className="h-5 w-5" />
+      {/* Left Sidebar (List) */}
+      <div
+        className={`flex h-full flex-col border-r border-neutral-200 bg-white transition-all duration-300 dark:border-neutral-800 dark:bg-neutral-950 
+        ${activeTab ? "hidden md:flex w-full md:w-80 lg:w-96" : "w-full max-w-4xl mx-auto md:w-80 md:mx-0 lg:w-96"}`}
+      >
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-neutral-200 px-4 dark:border-neutral-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center border border-neutral-200 bg-neutral-100 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-400">
+              <Cog6ToothIcon className="h-5 w-5" />
+            </div>
+            <h1 className="font-orbitron text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+              SETTINGS
+            </h1>
+          </div>
+        </header>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full group flex items-center gap-4 border border-transparent p-4 transition-all hover:bg-neutral-50 dark:hover:bg-neutral-900
+                ${activeTab === item.id
+                  ? "bg-neutral-100 border-neutral-200 dark:bg-neutral-900 dark:border-neutral-800"
+                  : "bg-white dark:bg-neutral-950"}
+                ${item.danger ? "hover:border-red-200 hover:bg-red-50 dark:hover:border-red-900/30 dark:hover:bg-red-900/10" : ""}
+                `}
+            >
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center border ${activeTab === item.id ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400"} ${item.danger ? "group-hover:text-red-600 group-hover:border-red-200" : ""}`}>
+                <item.icon className="h-5 w-5" />
               </div>
-              <h1 className="font-orbitron text-lg font-bold tracking-tight">SETTINGS</h1>
+              <div className="flex flex-col items-start">
+                <span className={`font-bold uppercase tracking-tight ${activeTab === item.id ? "text-neutral-900 dark:text-white" : "text-neutral-700 dark:text-neutral-300"} ${item.danger ? "group-hover:text-red-700 dark:group-hover:text-red-400" : ""}`}>
+                  {item.label}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Right Side (Content or System Idle) */}
+      {activeTab ? (
+        <div className="fixed inset-0 z-50 flex h-full w-full flex-col bg-neutral-50 md:relative md:z-0 dark:bg-neutral-950">
+          {/* Mobile Header for Detail View */}
+          <div className="md:hidden flex items-center border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950">
+            <button onClick={() => setActiveTab(null)} className="mr-3">
+              <ArrowRightOnRectangleIcon className="h-5 w-5 rotate-180" />
+            </button>
+            <h2 className="font-bold uppercase tracking-widest">{activeItem?.label}</h2>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="mx-auto max-w-2xl">
+              {activeItem?.component}
             </div>
           </div>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-4 py-8 space-y-8">
-        <AccountSection showToast={showToast} />
-        <PrivacySecuritySection />
-        <ChatsSection />
-        <NotificationsSection />
-        <HelpAboutSection />
-        <DangerZone showToast={showToast} />
-      </main>
-
-      <div className="h-14 md:hidden" />
+      ) : (
+        /* Empty State for Split View */
+        <div className="hidden flex-1 items-center justify-center bg-neutral-100 md:flex dark:bg-neutral-900">
+          <div className="flex flex-col items-center border border-dashed border-neutral-300 p-12 dark:border-neutral-700">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-800">
+              <Cog6ToothIcon className="h-8 w-8 text-neutral-400" />
+            </div>
+            <h2 className="mb-2 font-orbitron text-lg font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+              System Idle
+            </h2>
+            <p className="max-w-xs text-center text-xs font-mono text-neutral-500 dark:text-neutral-400">
+              Select a configuration module from the left panel to modify system parameters.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -353,8 +416,8 @@ function AccountSection({ showToast }) {
     }
   }
 
-  if (loading) return <Section title="Account" icon={<KeyIcon className="h-5 w-5"/>}>Loading user details...</Section>;
-  if (err) return <Section title="Account" icon={<KeyIcon className="h-5 w-5"/>}>Error: {err}</Section>;
+  if (loading) return <Section title="Account" icon={<KeyIcon className="h-5 w-5" />}>Loading user details...</Section>;
+  if (err) return <Section title="Account" icon={<KeyIcon className="h-5 w-5" />}>Error: {err}</Section>;
 
   return (
     <Section title="User Identity" icon={<KeyIcon className="h-5 w-5" />}>
@@ -374,10 +437,10 @@ function AccountSection({ showToast }) {
           )}
         </div>
         <div className="flex flex-col gap-2">
-           <Button variant="outline" onClick={() => setChangePwdOpen(true)} icon={<KeyOutlineIcon className="h-4 w-4" />}>
-              CHANGE PASSWORD
-           </Button>
-           <p className="text-xs text-neutral-400">Manage your avatar via external provider.</p>
+          <Button variant="outline" onClick={() => setChangePwdOpen(true)} icon={<KeyOutlineIcon className="h-4 w-4" />}>
+            CHANGE PASSWORD
+          </Button>
+          <p className="text-xs text-neutral-400">Manage your avatar via external provider.</p>
         </div>
       </div>
 
@@ -403,7 +466,7 @@ function AccountSection({ showToast }) {
       <ChangePasswordDialog
         open={changePwdOpen}
         onClose={() => setChangePwdOpen(false)}
-        onSuccess={() => {}}
+        onSuccess={() => { }}
         apiBase={API_BASE}
         authHeader={authHeader}
         showToast={showToast}
@@ -670,14 +733,12 @@ function Toggle({ label, description, enabled, onChange }) {
       </div>
       <button
         onClick={onChange}
-        className={`relative inline-flex h-6 w-12 items-center border border-neutral-300 transition-colors duration-200 dark:border-neutral-600 ${
-          enabled ? "bg-neutral-900 border-neutral-900 dark:bg-white dark:border-white" : "bg-neutral-100 dark:bg-neutral-800"
-        }`}
+        className={`relative inline-flex h-6 w-12 items-center border border-neutral-300 transition-colors duration-200 dark:border-neutral-600 ${enabled ? "bg-neutral-900 border-neutral-900 dark:bg-white dark:border-white" : "bg-neutral-100 dark:bg-neutral-800"
+          }`}
       >
         <span
-          className={`inline-block h-4 w-4 transform bg-neutral-400 transition-transform duration-200 dark:bg-neutral-500 ${
-            enabled ? "translate-x-7 bg-white dark:bg-neutral-900" : "translate-x-1"
-          }`}
+          className={`inline-block h-4 w-4 transform bg-neutral-400 transition-transform duration-200 dark:bg-neutral-500 ${enabled ? "translate-x-7 bg-white dark:bg-neutral-900" : "translate-x-1"
+            }`}
         />
       </button>
     </div>
@@ -720,17 +781,17 @@ function LinkRow({ label, onClick }) {
 
 function Button({ children, variant = "solid", icon = null, onClick, type = "button", disabled }) {
   const base = "inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed";
-  
+
   const styles =
     variant === "solid"
       ? "bg-neutral-900 text-white border border-neutral-900 hover:bg-white hover:text-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white"
       : variant === "outline"
-      ? "border border-neutral-300 text-neutral-700 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-white dark:hover:text-white"
-      : variant === "warn"
-      ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-500"
-      : variant === "danger"
-      ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-500 dark:hover:bg-red-600 dark:hover:text-white"
-      : "";
+        ? "border border-neutral-300 text-neutral-700 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-white dark:hover:text-white"
+        : variant === "warn"
+          ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-500"
+          : variant === "danger"
+            ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-500 dark:hover:bg-red-600 dark:hover:text-white"
+            : "";
 
   return (
     <button type={type} className={`${base} ${styles}`} onClick={onClick} disabled={disabled}>

@@ -153,7 +153,7 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
         if (typeof window !== "undefined" && user.username) {
           localStorage.setItem("username", user.username);
         }
-      } catch {} finally {
+      } catch { } finally {
         setLoading(false);
       }
     })();
@@ -214,6 +214,19 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
     }
     load();
   }, [token, myId]);
+
+  // Auto-select chat from localStorage
+  useEffect(() => {
+    if (chats.length === 0 || loading) return;
+    const storedId = localStorage.getItem("activeConversationId");
+    if (storedId) {
+      const found = chats.find((c) => c.id === storedId);
+      if (found) {
+        setSelectedChat(found);
+        if (setSidebarCollapsed) setSidebarCollapsed(true);
+      }
+    }
+  }, [chats, loading, setSidebarCollapsed]);
 
   // Socket Listener
   useEffect(() => {
@@ -280,7 +293,7 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
 
   return (
     <div className="flex h-full overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white transition-colors duration-300">
-      
+
       {/* Left Sidebar (List) */}
       <div
         className={`flex h-full flex-col border-r border-neutral-200 bg-white transition-all duration-300 dark:border-neutral-800 dark:bg-neutral-950 
@@ -329,11 +342,10 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
               <button
                 key={t.key}
                 onClick={() => setActiveTab(t.key)}
-                className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                  activeTab === t.key
-                    ? "text-neutral-900 underline underline-offset-4 dark:text-white"
-                    : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-                }`}
+                className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === t.key
+                  ? "text-neutral-900 underline underline-offset-4 dark:text-white"
+                  : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                  }`}
               >
                 {t.label}
               </button>
@@ -382,6 +394,7 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
             isAIChat={selectedChat.id === AI_CHAT_ID}
             myId={myId}
             myName={username}
+            conversationRaw={selectedChat._raw}
             onClose={handleCloseChat}
           />
         </div>
@@ -423,7 +436,7 @@ function ChatListItem({ chat, onClick, isActive }) {
       {/* Avatar */}
       <div className="relative shrink-0">
         <div className={`h-12 w-12 border ${isAI ? 'border-indigo-500/50' : 'border-neutral-200 dark:border-neutral-700'}`}>
-           <img
+          <img
             src={chat.avatar}
             alt={toStr(chat.name)}
             className="h-full w-full object-cover"
@@ -445,7 +458,7 @@ function ChatListItem({ chat, onClick, isActive }) {
           </div>
           <span className="text-[10px] font-mono text-neutral-400">{chat.time}</span>
         </div>
-        
+
         <div className="flex items-center justify-between gap-2">
           <p className="truncate text-xs font-mono text-neutral-500 dark:text-neutral-400">
             {toStr(chat.lastMessage)}
@@ -478,8 +491,8 @@ function EmptyState({ query, activeTab }) {
   const msg = query
     ? `NO DATA FOUND FOR "${query}"`
     : activeTab === "unread"
-    ? "NO PENDING MESSAGES"
-    : "COMMUNICATION LOGS EMPTY";
+      ? "NO PENDING MESSAGES"
+      : "COMMUNICATION LOGS EMPTY";
 
   return (
     <div className="flex flex-col items-center py-12 opacity-50">

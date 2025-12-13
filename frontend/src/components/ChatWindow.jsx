@@ -14,9 +14,11 @@ import {
     TrashIcon,
     EllipsisVerticalIcon,
     CpuChipIcon,
-    StopIcon
+    StopIcon,
+    InformationCircleIcon
 } from "@heroicons/react/24/outline";
 import { io } from "socket.io-client";
+import ContactProfile from "./ContactProfile";
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const API_BASE = `${BACKEND_URL}/api`;
@@ -32,10 +34,10 @@ const socket = io(BACKEND_URL, {
 // ====================================================================
 const AI_CHAT_ID = "ai-chatbot-genius-gemini";
 const AI_CHAT_NAME = "SYSTEM AI";
-const AI_AVATAR = "/chatbot.png"; 
+const AI_AVATAR = "/chatbot.png";
 
 const ALLOWED_FILE_TYPES = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,application/pdf";
-const MAX_FILE_SIZE = 25 * 1024 * 1024; 
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 const toStr = (v) => (v == null ? "" : String(v));
 
@@ -155,6 +157,7 @@ export default function ChatWindow({
     isAIChat,
     myId,
     myName,
+    conversationRaw,
     onClose
 }) {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -164,6 +167,7 @@ export default function ChatWindow({
     const [isTyping, setIsTyping] = useState(false);
     const [err, setErr] = useState("");
     const [loading, setLoading] = useState(isAIChat ? false : true);
+    const [showProfile, setShowProfile] = useState(false);
     const listRef = useRef(null);
 
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -177,7 +181,7 @@ export default function ChatWindow({
 
     const [viewingMedia, setViewingMedia] = useState(null);
     const [replyingTo, setReplyingTo] = useState(null);
-    const [contextMenu, setContextMenu] = useState(null); 
+    const [contextMenu, setContextMenu] = useState(null);
     const contextMenuRef = useRef(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
 
@@ -483,7 +487,26 @@ export default function ChatWindow({
     }
 
     return (
-        <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-950 transition-colors duration-300">
+        <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-950 transition-colors duration-300 relative">
+            {/* Profile Modal */}
+            {showProfile && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-sm border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900 flex flex-col overflow-hidden max-h-full">
+                        <div className="flex-1 overflow-y-auto">
+                            <ContactProfile
+                                contact={{
+                                    name: partner.name,
+                                    avatar: partner.avatar,
+                                    _raw: conversationRaw
+                                }}
+                                onClose={() => setShowProfile(false)}
+                                onMessage={() => setShowProfile(false)} // Already chatting
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header - Sharp, Industrial */}
             <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-neutral-200 dark:bg-neutral-900/95 dark:border-neutral-800">
                 <div className="px-4 h-16 flex items-center justify-between">
@@ -496,15 +519,18 @@ export default function ChatWindow({
                                 <ArrowLeftIcon className="h-5 w-5 text-neutral-900 dark:text-white" />
                             </button>
                         )}
-                        <div className="h-10 w-10 border border-neutral-200 dark:border-neutral-700">
+                        <div
+                            className="h-10 w-10 border border-neutral-200 dark:border-neutral-700 cursor-pointer"
+                            onClick={() => setShowProfile(true)}
+                        >
                             <img
                                 src={partner.avatar}
                                 alt={partner.name}
                                 className="h-full w-full object-cover"
                             />
                         </div>
-                        <div className="min-w-0">
-                            <p className="font-bold uppercase tracking-widest text-neutral-900 dark:text-white text-sm truncate">
+                        <div className="min-w-0 cursor-pointer" onClick={() => setShowProfile(true)}>
+                            <p className="font-bold uppercase tracking-widest text-neutral-900 dark:text-white text-sm truncate hover:underline">
                                 {partner.name}
                             </p>
                             <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-2">
@@ -525,13 +551,15 @@ export default function ChatWindow({
                 <DayDivider label={isAIChat ? "SESSION START" : "TODAY"} />
 
                 {loading && <div className="text-xs font-mono text-neutral-400 py-4 text-center uppercase animate-pulse">Establishing Link...</div>}
-                
-                {!!err && !loading && (
-                    <div className="text-xs font-bold text-red-600 border border-red-200 bg-red-50 p-3 mb-4 flex justify-between dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
-                        <span>ERROR: {err}</span>
-                        <button onClick={() => setErr("")} className="underline decoration-red-400">DISMISS</button>
-                    </div>
-                )}
+
+                {
+                    !!err && !loading && (
+                        <div className="text-xs font-bold text-red-600 border border-red-200 bg-red-50 p-3 mb-4 flex justify-between dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
+                            <span>ERROR: {err}</span>
+                            <button onClick={() => setErr("")} className="underline decoration-red-400">DISMISS</button>
+                        </div>
+                    )
+                }
 
                 <ul className="space-y-6">
                     {!loading && !err && messages.map((m, idx) => {
@@ -551,89 +579,97 @@ export default function ChatWindow({
                     })}
                 </ul>
 
-                {isTyping && (
-                    <div className="mt-4 flex items-end gap-2">
-                         <div className="h-8 w-8 border border-neutral-200 dark:border-neutral-700">
-                            <img src={partner.avatar} className="h-full w-full object-cover" />
-                         </div>
-                        <TypingIndicator />
-                    </div>
-                )}
-            </main>
+                {
+                    isTyping && (
+                        <div className="mt-4 flex items-end gap-2">
+                            <div className="h-8 w-8 border border-neutral-200 dark:border-neutral-700">
+                                <img src={partner.avatar} className="h-full w-full object-cover" />
+                            </div>
+                            <TypingIndicator />
+                        </div>
+                    )
+                }
+            </main >
 
             {/* Overlays */}
-            {selectedFile && (
-                <div className="absolute inset-0 z-30 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm p-4">
-                    <div className="w-full max-w-sm border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">Upload Artifact</h3>
-                            <button onClick={cancelFileSelection} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white">
-                                <XMarkIcon className="h-5 w-5" />
+            {
+                selectedFile && (
+                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm p-4">
+                        <div className="w-full max-w-sm border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">Upload Artifact</h3>
+                                <button onClick={cancelFileSelection} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white">
+                                    <XMarkIcon className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div className="mb-6 flex items-center justify-center border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-800">
+                                {getFileType(selectedFile) === "image" && filePreview && (
+                                    <img src={filePreview} className="max-h-[200px] object-contain" />
+                                )}
+                                {getFileType(selectedFile) === "video" && filePreview && (
+                                    <video src={filePreview} controls className="max-h-[200px]" />
+                                )}
+                                {getFileType(selectedFile) === "pdf" && (
+                                    <div className="text-center">
+                                        <DocumentIcon className="h-12 w-12 text-neutral-400 mx-auto mb-2" />
+                                        <p className="text-xs font-mono text-neutral-900 dark:text-white">{selectedFile.name}</p>
+                                        <p className="text-[10px] font-mono text-neutral-500">{formatFileSize(selectedFile.size)}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                onClick={uploadFile}
+                                disabled={uploading}
+                                className="w-full bg-neutral-900 border border-neutral-900 py-3 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white transition-all"
+                            >
+                                {uploading ? `TRANSMITTING ${uploadProgress}%...` : "INITIATE TRANSFER"}
                             </button>
                         </div>
-
-                        <div className="mb-6 flex items-center justify-center border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-800">
-                            {getFileType(selectedFile) === "image" && filePreview && (
-                                <img src={filePreview} className="max-h-[200px] object-contain" />
-                            )}
-                            {getFileType(selectedFile) === "video" && filePreview && (
-                                <video src={filePreview} controls className="max-h-[200px]" />
-                            )}
-                            {getFileType(selectedFile) === "pdf" && (
-                                <div className="text-center">
-                                    <DocumentIcon className="h-12 w-12 text-neutral-400 mx-auto mb-2" />
-                                    <p className="text-xs font-mono text-neutral-900 dark:text-white">{selectedFile.name}</p>
-                                    <p className="text-[10px] font-mono text-neutral-500">{formatFileSize(selectedFile.size)}</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <button
-                            onClick={uploadFile}
-                            disabled={uploading}
-                            className="w-full bg-neutral-900 border border-neutral-900 py-3 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white transition-all"
-                        >
-                            {uploading ? `TRANSMITTING ${uploadProgress}%...` : "INITIATE TRANSFER"}
-                        </button>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Viewer */}
-            {viewingMedia && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingMedia(null)}>
-                    <button className="absolute top-4 right-4 p-2 text-white hover:bg-white/10">
-                        <XMarkIcon className="h-8 w-8" />
-                    </button>
-                    {viewingMedia.type === "image" && (
-                        <img src={viewingMedia.url} className="max-h-full max-w-full object-contain border border-neutral-700" onClick={(e) => e.stopPropagation()} />
-                    )}
-                    {viewingMedia.type === "video" && (
-                        <video src={viewingMedia.url} controls autoPlay className="max-h-full max-w-full border border-neutral-700" onClick={(e) => e.stopPropagation()} />
-                    )}
-                </div>
-            )}
+            {
+                viewingMedia && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingMedia(null)}>
+                        <button className="absolute top-4 right-4 p-2 text-white hover:bg-white/10">
+                            <XMarkIcon className="h-8 w-8" />
+                        </button>
+                        {viewingMedia.type === "image" && (
+                            <img src={viewingMedia.url} className="max-h-full max-w-full object-contain border border-neutral-700" onClick={(e) => e.stopPropagation()} />
+                        )}
+                        {viewingMedia.type === "video" && (
+                            <video src={viewingMedia.url} controls autoPlay className="max-h-full max-w-full border border-neutral-700" onClick={(e) => e.stopPropagation()} />
+                        )}
+                    </div>
+                )
+            }
 
             {/* Context Menu - Square */}
-            {contextMenu && (
-                <div
-                    ref={contextMenuRef}
-                    className="fixed z-40 min-w-[180px] border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
-                    style={{ left: Math.min(contextMenu.x, window.innerWidth - 180), top: Math.min(contextMenu.y, window.innerHeight - 200) }}
-                >
-                    <button onClick={() => handleReply(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
-                        <ArrowUturnLeftIcon className="h-4 w-4" /> REPLY
-                    </button>
-                    <button onClick={() => handleDeleteForMe(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
-                        <TrashIcon className="h-4 w-4" /> DELETE (LOCAL)
-                    </button>
-                    {contextMenu.message.outgoing && (
-                        <button onClick={() => handleDeleteForEveryone(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
-                            <TrashIcon className="h-4 w-4" /> DELETE (GLOBAL)
+            {
+                contextMenu && (
+                    <div
+                        ref={contextMenuRef}
+                        className="fixed z-40 min-w-[180px] border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+                        style={{ left: Math.min(contextMenu.x, window.innerWidth - 180), top: Math.min(contextMenu.y, window.innerHeight - 200) }}
+                    >
+                        <button onClick={() => handleReply(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                            <ArrowUturnLeftIcon className="h-4 w-4" /> REPLY
                         </button>
-                    )}
-                </div>
-            )}
+                        <button onClick={() => handleDeleteForMe(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                            <TrashIcon className="h-4 w-4" /> DELETE (LOCAL)
+                        </button>
+                        {contextMenu.message.outgoing && (
+                            <button onClick={() => handleDeleteForEveryone(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
+                                <TrashIcon className="h-4 w-4" /> DELETE (GLOBAL)
+                            </button>
+                        )}
+                    </div>
+                )
+            }
 
             {/* Footer / Input - Industrial Form */}
             <footer className="sticky bottom-0 z-20 border-t border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
@@ -648,7 +684,7 @@ export default function ChatWindow({
                 )}
 
                 <div className="flex gap-2">
-                     <div className="relative">
+                    <div className="relative">
                         <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="flex h-12 w-12 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors">
                             <FaceSmileIcon className="h-5 w-5" />
                         </button>
@@ -660,7 +696,7 @@ export default function ChatWindow({
                     </div>
 
                     {!isAIChat && (
-                         <button onClick={() => fileInputRef.current?.click()} className="flex h-12 w-12 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors">
+                        <button onClick={() => fileInputRef.current?.click()} className="flex h-12 w-12 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors">
                             <PaperClipIcon className="h-5 w-5" />
                             <input ref={fileInputRef} type="file" accept={ALLOWED_FILE_TYPES} onChange={handleFileSelect} className="hidden" />
                         </button>
@@ -686,7 +722,7 @@ export default function ChatWindow({
                     </button>
                 </div>
             </footer>
-        </div>
+        </div >
     );
 }
 
@@ -740,7 +776,7 @@ function MessageBubble({ msg, showAvatar, onMediaClick, onContextMenu, onReply, 
             )}
 
             <div className="relative max-w-[85%] sm:max-w-md">
-                 <button onClick={onContextMenu} className={`absolute -top-3 p-1 opacity-0 group-hover:opacity-100 transition-opacity ${msg.outgoing ? 'right-0' : 'left-0'} text-neutral-400`}>
+                <button onClick={onContextMenu} className={`absolute -top-3 p-1 opacity-0 group-hover:opacity-100 transition-opacity ${msg.outgoing ? 'right-0' : 'left-0'} text-neutral-400`}>
                     <EllipsisVerticalIcon className="h-4 w-4" />
                 </button>
 
@@ -759,13 +795,13 @@ function MessageBubble({ msg, showAvatar, onMediaClick, onContextMenu, onReply, 
                     {msg.type === "image" && (
                         <img onClick={() => onMediaClick({ type: "image", url: msg.mediaUrl })} src={msg.mediaUrl} className="mb-2 max-w-full cursor-pointer border border-neutral-500/20" />
                     )}
-                     {msg.type === "video" && (
+                    {msg.type === "video" && (
                         <div onClick={() => onMediaClick({ type: "video", url: msg.mediaUrl })} className="mb-2 relative cursor-pointer border border-neutral-500/20">
                             <video src={msg.mediaUrl} className="max-w-full" />
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30"><PlayIcon className="h-8 w-8 text-white" /></div>
                         </div>
                     )}
-                     {msg.type === "pdf" && (
+                    {msg.type === "pdf" && (
                         <a href={msg.mediaUrl} target="_blank" className={`flex items-center gap-3 border p-2 mb-2 ${msg.outgoing ? 'border-neutral-600 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'}`}>
                             <DocumentIcon className="h-5 w-5" />
                             <span className="text-xs font-mono underline">{msg.fileName}</span>
