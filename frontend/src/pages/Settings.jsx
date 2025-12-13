@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext";
 import {
   Cog6ToothIcon,
   BellIcon,
@@ -518,14 +519,24 @@ function PrivacySecuritySection() {
 }
 
 /* ---------------- Chats ---------------- */
+/* ---------------- Chats ---------------- */
 function ChatsSection() {
-  const [theme, setTheme] = useState("System");
-  const [fontSize, setFontSize] = useState("Medium");
+  const { theme, setTheme, typography, setTypography } = useTheme();
 
   return (
     <Section title="Interface" icon={<PaintBrushIcon className="h-5 w-5" />}>
-      <SelectRow label="Color Theme" value={theme} onChange={setTheme} options={["System", "Light", "Dark"]} />
-      <SelectRow label="Typography Size" value={fontSize} onChange={setFontSize} options={["Small", "Medium", "Large"]} />
+      <SelectRow
+        label="Color Theme"
+        value={theme.charAt(0).toUpperCase() + theme.slice(1)}
+        onChange={(val) => setTheme(val.toLowerCase())}
+        options={["System", "Light", "Dark"]}
+      />
+      <SelectRow
+        label="Typography Size"
+        value={typography.charAt(0).toUpperCase() + typography.slice(1)}
+        onChange={(val) => setTypography(val.toLowerCase())}
+        options={["Small", "Medium", "Large"]}
+      />
     </Section>
   );
 }

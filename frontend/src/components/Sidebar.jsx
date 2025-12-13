@@ -46,7 +46,7 @@ function Sidebar({ active, setActive }) {
         return (
             <div
                 onClick={handleProfileClick}
-                className={`cursor-pointer transition-all border ${isActive ? 'border-white' : 'border-neutral-700 hover:border-white'}`}
+                className={`cursor-pointer transition-all border ${isActive ? 'border-neutral-900 dark:border-white' : 'border-neutral-300 dark:border-neutral-700 hover:border-neutral-900 dark:hover:border-white'}`}
             >
                 {user?.photoUrl ? (
                     <img
@@ -55,7 +55,7 @@ function Sidebar({ active, setActive }) {
                         className={`${sizeClass} object-cover`}
                     />
                 ) : (
-                    <div className={`${sizeClass} bg-neutral-800 flex items-center justify-center text-white font-bold`}>
+                    <div className={`${sizeClass} bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-white font-bold`}>
                         {user?.username?.[0]?.toUpperCase() || "G"}
                     </div>
                 )}
@@ -67,12 +67,12 @@ function Sidebar({ active, setActive }) {
         <>
             {/* Desktop Sidebar - Always Collapsed */}
             <aside
-                className="hidden md:flex bg-neutral-900 text-white flex-col sticky top-0 h-screen border-r border-neutral-800 transition-all duration-300 w-20"
+                className="hidden md:flex bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white flex-col sticky top-0 h-screen border-r border-neutral-200 dark:border-neutral-800 transition-all duration-300 w-20"
             >
                 {/* Logo Area */}
                 <div
                     onClick={() => setActive('Home')}
-                    className="h-16 flex items-center justify-center border-b border-neutral-800 cursor-pointer"
+                    className="h-16 flex items-center justify-center border-b border-neutral-200 dark:border-neutral-800 cursor-pointer"
                 >
                     <img
                         src="/favicon.ico"
@@ -92,17 +92,17 @@ function Sidebar({ active, setActive }) {
                                 title={item.label}
                                 className={`relative flex items-center justify-center w-full py-4 transition-colors group
                                     ${isActive
-                                        ? 'bg-neutral-800 text-white'
-                                        : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                                        ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white'
+                                        : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-white'
                                     }
                                 `}
                             >
                                 {/* Active Indicator Strip */}
                                 {isActive && (
-                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-white" />
+                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-neutral-900 dark:bg-white" />
                                 )}
 
-                                <span className={`${isActive ? 'text-white' : 'text-neutral-400 group-hover:text-white'}`}>
+                                <span className={`${isActive ? 'text-neutral-900 dark:text-white' : 'text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white'}`}>
                                     {item.icon}
                                 </span>
                             </button>
@@ -111,13 +111,13 @@ function Sidebar({ active, setActive }) {
                 </nav>
 
                 {/* Bottom Section - User Profile */}
-                <div className="p-4 border-t border-neutral-800 bg-neutral-900">
+                <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
                     <div className="flex items-center justify-center flex-col gap-4">
                         <ProfilePhoto size="md" isActive={active === 'Profile'} />
 
                         <button
                             onClick={handleLogoutClick}
-                            className="p-2 text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors border border-transparent hover:border-neutral-700 rounded-lg"
+                            className="p-2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700 rounded-lg"
                             title="Logout"
                         >
                             <ArrowRightOnRectangleIcon className="h-5 w-5" />
@@ -127,7 +127,7 @@ function Sidebar({ active, setActive }) {
             </aside>
 
             {/* Mobile Header - Sharp */}
-            <div className="md:hidden fixed top-0 left-0 w-full bg-neutral-900 text-white border-b border-neutral-800 z-30">
+            <div className="md:hidden fixed top-0 left-0 w-full bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border-b border-neutral-200 dark:border-neutral-800 z-30">
                 <div className="flex items-center justify-center h-14">
                     <h1
                         onClick={() => setActive('Home')}
@@ -139,7 +139,7 @@ function Sidebar({ active, setActive }) {
             </div>
 
             {/* Mobile Bottom Nav - Square */}
-            <nav className="md:hidden fixed bottom-0 left-0 w-full bg-neutral-900 border-t border-neutral-800 flex justify-around items-stretch z-30 safe-area-bottom h-16">
+            <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 flex justify-around items-stretch z-30 safe-area-bottom h-16">
                 {navItems.map((item) => {
                     const isActive = active === item.name;
                     return (
@@ -147,10 +147,10 @@ function Sidebar({ active, setActive }) {
                             key={item.name}
                             onClick={() => setActive(item.name)}
                             className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative
-                                ${isActive ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}
+                                ${isActive ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-300'}
                             `}
                         >
-                            {isActive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-white" />}
+                            {isActive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-neutral-900 dark:bg-white" />}
                             {item.icon}
                             <span className="text-[9px] font-bold uppercase tracking-wider">{item.name}</span>
                         </button>
@@ -161,17 +161,17 @@ function Sidebar({ active, setActive }) {
                 <button
                     onClick={handleProfileClick}
                     className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative
-                        ${active === 'Profile' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}
+                        ${active === 'Profile' ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-300'}
                     `}
                 >
-                    {active === 'Profile' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-white" />}
+                    {active === 'Profile' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-neutral-900 dark:bg-white" />}
 
                     {/* Small avatar for mobile tab */}
                     {user?.photoUrl ? (
                         <img
                             src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}${user.photoUrl}`}
                             alt="Profile"
-                            className={`h-5 w-5 object-cover border ${active === 'Profile' ? 'border-white' : 'border-neutral-600'}`}
+                            className={`h-5 w-5 object-cover border ${active === 'Profile' ? 'border-neutral-900 dark:border-white' : 'border-neutral-300 dark:border-neutral-600'}`}
                         />
                     ) : (
                         <UserIcon className="h-5 w-5" />
