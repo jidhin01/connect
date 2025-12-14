@@ -92,10 +92,10 @@ const inferStatus = (c) => {
 };
 
 /* ---------- AI Configuration ---------- */
-const AI_CHAT_ID = "ai-chatbot-genius-gemini";
-const AI_CHAT_NAME = "SYSTEM AI"; // Industrial naming
-const AI_LAST_MESSAGE_DEFAULT = "System ready. Awaiting query.";
-const AI_AVATAR = "/chatbot.png"; // Ensure this exists or use a fallback
+const AI_CHAT_ID = "ai-chatbot-genius-openai";
+const AI_CHAT_NAME = "GENIUS AI";
+const AI_LAST_MESSAGE_DEFAULT = "Hey! Ready to chat 🚀";
+const AI_AVATAR = "/chatbot.png";
 
 const AI_CHATBOT_PROFILE = {
   id: AI_CHAT_ID,

@@ -32,8 +32,8 @@ const socket = io(BACKEND_URL, {
 // ====================================================================
 // 💡 CONFIG & HELPERS
 // ====================================================================
-const AI_CHAT_ID = "ai-chatbot-genius-gemini";
-const AI_CHAT_NAME = "SYSTEM AI";
+const AI_CHAT_ID = "ai-chatbot-genius-openai";
+const AI_CHAT_NAME = "GENIUS AI";
 const AI_AVATAR = "/chatbot.png";
 
 const ALLOWED_FILE_TYPES = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,application/pdf";
@@ -429,18 +429,19 @@ export default function ChatWindow({
             setMessages((prev) => [...prev, userMsg]);
             setIsTyping(true);
             try {
+                // Build message history in OpenAI format
                 const history = messages
                     .filter(m => m.text && m.text.trim().length > 0)
                     .slice(-10)
                     .map(m => ({
-                        role: m.outgoing ? 'user' : 'model',
-                        parts: [{ text: m.text }]
+                        role: m.outgoing ? 'user' : 'assistant',
+                        content: m.text
                     }));
-                const currentContents = [...history, { role: 'user', parts: [{ text: text }] }];
+                const apiMessages = [...history, { role: 'user', content: text }];
                 const res = await fetch(`${API_BASE}/chatbot/ask`, {
                     method: "POST",
                     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ contents: currentContents }),
+                    body: JSON.stringify({ messages: apiMessages }),
                 });
                 if (!res.ok) throw new Error("AI failed to respond");
                 const data = await res.json();

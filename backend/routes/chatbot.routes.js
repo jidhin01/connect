@@ -2,77 +2,107 @@
 
 const express = require('express');
 const router = express.Router();
+const OpenAI = require('openai');
 
-// 1. Import the configured Gemini client (AIChatHistory model import is REMOVED)
-const { ai } = require('../config/gemini');
+// Lazy initialization of OpenAI client (ensures env vars are loaded)
+let openai = null;
+function getOpenAIClient() {
+    if (!openai) {
+        openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY
+        });
+    }
+    return openai;
+}
 
-const AI_CHAT_ID = "ai-chatbot-genius-gemini"; 
+const AI_CHAT_ID = "ai-chatbot-genius-openai";
 
-// Helper function to validate a Gemini content part
-const isValidPart = (part) => {
-    return part && part.parts && Array.isArray(part.parts) && part.parts.length > 0 && part.parts[0].text && part.parts[0].text.trim().length > 0;
+// System prompt for the chatbot personality
+const SYSTEM_PROMPT = `You are Genius AI, a friendly, witty, and helpful assistant integrated into a professional messaging app. 
+Your personality traits:
+- Casual and conversational, like chatting with a smart friend
+- Concise responses (keep them short and punchy unless more detail is needed)
+- Use occasional emojis to add personality 😊
+- Helpful and knowledgeable across many topics
+- Never mention being an AI or language model unless directly asked
+- Match the user's energy - if they're casual, be casual; if they're professional, be professional`;
+
+// Helper function to validate messages array
+const isValidMessage = (msg) => {
+    return msg &&
+        typeof msg === 'object' &&
+        (msg.role === 'user' || msg.role === 'assistant') &&
+        msg.content &&
+        typeof msg.content === 'string' &&
+        msg.content.trim().length > 0;
 };
 
-// 🛑 REMOVE: The router.get('/history') function is removed entirely.
-
-// 2. Define the POST route to handle AI chat requests
+// POST /api/chatbot/ask - Handle AI chat requests
 router.post('/ask', async (req, res) => {
-  try {
-    // 💡 REVERT: Expect the 'contents' array (history + new message) from the frontend
-    const { contents } = req.body; 
+    try {
+        const { messages } = req.body;
 
-    // A. Check if the conversation history is present and valid
-    if (!contents || !Array.isArray(contents) || contents.length === 0) {
-        return res.status(400).json({ error: "Conversation history ('contents' array) is missing or empty." });
-    }
-
-    // 💡 Validate and filter out any malformed history items
-    const validatedContents = contents.filter(item => {
-        // Ensure the item has a valid role and at least one valid part
-        return item.role && (item.role === 'user' || item.role === 'model') && isValidPart(item);
-    });
-
-    // Check if the validated array is now empty (meaning input was all junk)
-    if (validatedContents.length === 0) {
-        return res.status(400).json({ error: "No valid message history found in request." });
-    }
-
-    // B. Define the bot's casual personality (System Instruction)
-    const systemInstruction = "You are a friendly, casual, and witty assistant named Genius AI, integrated into a professional messaging app portfolio project. Keep your responses short, casual, and fun, like a peer in a chat. Do not mention that you are an AI or a language model unless specifically asked.";
-
-    // C. Call the Gemini API to generate content
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash", 
-        // 💡 Use the validated and cleaned 'validatedContents' array sent by the client
-        contents: validatedContents, 
-        config: {
-            systemInstruction: systemInstruction, 
-            temperature: 0.7, 
-            maxOutputTokens: 150 
+        // Validate request
+        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+            return res.status(400).json({
+                error: "Message history ('messages' array) is missing or empty."
+            });
         }
-    });
 
-    // D. Extract the response and send it back to the React frontend
-    const botReply = response.text.trim();
-    
-    // Optional: Log the new message and AI's response for backend monitoring
-    const lastUserMessage = validatedContents[validatedContents.length - 1].parts[0].text;
-    console.log(`[AI Chat] User: "${lastUserMessage}" | AI Reply: "${botReply}"`);
+        // Filter and validate messages
+        const validMessages = messages.filter(isValidMessage);
 
-    // E. NO DATABASE SAVING HAPPENS HERE.
-    
-    res.json({ reply: botReply });
-    
-  } catch (error) {
-    // F. Log the full error object for debugging
-    console.error(`[AI Chatbot Error - ${AI_CHAT_ID}]:`, error); 
-    if (error.response) {
-        console.error("API Response Status:", error.response.status);
-        console.error("API Response Data:", error.response.data);
+        if (validMessages.length === 0) {
+            return res.status(400).json({
+                error: "No valid messages found in request."
+            });
+        }
+
+        // Prepare messages for OpenAI API
+        const apiMessages = [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...validMessages
+        ];
+
+        // Call OpenAI API
+        const completion = await getOpenAIClient().chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: apiMessages,
+            temperature: 0.7,
+            max_tokens: 300,
+            presence_penalty: 0.1,
+            frequency_penalty: 0.1
+        });
+
+        // Extract response
+        const botReply = completion.choices[0]?.message?.content?.trim() ||
+            "I couldn't generate a response. Please try again.";
+
+        // Log for monitoring
+        const lastUserMessage = validMessages[validMessages.length - 1]?.content || 'N/A';
+        console.log(`[AI Chat] User: "${lastUserMessage.substring(0, 50)}..." | AI Reply: "${botReply.substring(0, 50)}..."`);
+
+        res.json({ reply: botReply });
+
+    } catch (error) {
+        console.error(`[AI Chatbot Error - ${AI_CHAT_ID}]:`, error.message);
+
+        // Handle specific OpenAI errors
+        if (error.code === 'insufficient_quota') {
+            return res.status(503).json({
+                error: "AI service quota exceeded. Please try again later."
+            });
+        }
+        if (error.code === 'invalid_api_key') {
+            return res.status(500).json({
+                error: "AI service configuration error."
+            });
+        }
+
+        res.status(500).json({
+            error: "Genius AI is taking a quick break. Please try again!"
+        });
     }
-    
-    res.status(500).json({ error: "Sorry, Genius AI is currently busy. Please try again in a moment." });
-  }
 });
 
 module.exports = router;
