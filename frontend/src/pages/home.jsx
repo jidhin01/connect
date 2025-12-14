@@ -448,7 +448,7 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
 
 // Avatar with fallback to first letter
 function AvatarWithFallback({ src, alt, name, className }) {
-  const [error, setError] = React.useState(false);
+  const [error, setError] = useState(false);
   const initial = getInitial(name);
 
   if (error || !src) {
