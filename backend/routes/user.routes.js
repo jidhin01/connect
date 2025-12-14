@@ -159,4 +159,93 @@ router.delete('/me', auth, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/users/block/:userId
+ * Block a user
+ */
+router.post('/block/:userId', auth, async (req, res) => {
+  try {
+    const userToBlock = req.params.userId;
+    const me = req.user.id;
+
+    if (userToBlock === me) {
+      return res.status(400).json({ error: 'Cannot block yourself' });
+    }
+
+    const user = await User.findById(me);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Check if already blocked
+    if (user.blockedUsers.map(String).includes(userToBlock)) {
+      return res.status(400).json({ error: 'User already blocked' });
+    }
+
+    user.blockedUsers.push(userToBlock);
+    await user.save();
+
+    res.json({ success: true, message: 'User blocked successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Block user error' });
+  }
+});
+
+/**
+ * DELETE /api/users/block/:userId
+ * Unblock a user
+ */
+router.delete('/block/:userId', auth, async (req, res) => {
+  try {
+    const userToUnblock = req.params.userId;
+    const me = req.user.id;
+
+    const user = await User.findById(me);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const idx = user.blockedUsers.map(String).indexOf(userToUnblock);
+    if (idx === -1) {
+      return res.status(400).json({ error: 'User is not blocked' });
+    }
+
+    user.blockedUsers.splice(idx, 1);
+    await user.save();
+
+    res.json({ success: true, message: 'User unblocked successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Unblock user error' });
+  }
+});
+
+/**
+ * GET /api/users/blocked
+ * Get list of blocked user IDs
+ */
+router.get('/blocked', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('blockedUsers');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ blockedUsers: user.blockedUsers || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Get blocked users error' });
+  }
+});
+
+/**
+ * GET /api/users/block/status/:userId
+ * Check if a specific user is blocked
+ */
+router.get('/block/status/:userId', auth, async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+    const me = req.user.id;
+
+    const user = await User.findById(me).select('blockedUsers');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const isBlocked = user.blockedUsers.map(String).includes(targetUserId);
+    res.json({ isBlocked });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Check block status error' });
+  }
+});
+
 module.exports = router;

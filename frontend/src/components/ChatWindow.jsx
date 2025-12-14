@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
     ArrowLeftIcon,
     FaceSmileIcon,
@@ -15,7 +15,9 @@ import {
     EllipsisVerticalIcon,
     CpuChipIcon,
     StopIcon,
-    InformationCircleIcon
+    InformationCircleIcon,
+    NoSymbolIcon,
+    LockClosedIcon
 } from "@heroicons/react/24/outline";
 import { io } from "socket.io-client";
 import ContactProfile from "./ContactProfile";
@@ -185,6 +187,39 @@ export default function ChatWindow({
     const contextMenuRef = useRef(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+    // Block status
+    const [isBlocked, setIsBlocked] = useState(false);
+    const [hasBlockedMe, setHasBlockedMe] = useState(false);
+
+    // Get other user ID from conversation
+    const otherUserId = useMemo(() => {
+        if (isAIChat) return null;
+        const other = conversationRaw?.participants?.find(
+            (p) => String(p._id || p) !== String(myId)
+        );
+        return other?._id || other || null;
+    }, [conversationRaw, myId, isAIChat]);
+
+    // Check block status
+    useEffect(() => {
+        if (isAIChat || !otherUserId || !token) return;
+
+        async function checkBlockStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/users/block/status/${otherUserId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsBlocked(data.isBlocked);
+                }
+            } catch (e) {
+                console.error("Failed to check block status:", e);
+            }
+        }
+        checkBlockStatus();
+    }, [otherUserId, token, isAIChat]);
+
     const partner = useMemo(() => {
         if (isAIChat) {
             return {
@@ -215,6 +250,8 @@ export default function ChatWindow({
         setMessages([]);
         setInput("");
         setErr("");
+        setIsBlocked(false);
+        setHasBlockedMe(false);
         if (!isAIChat) {
             if (conversationId) loadMessages();
         } else {
@@ -297,7 +334,11 @@ export default function ChatWindow({
             }
         }
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        document.addEventListener("touchstart", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("touchstart", handleClickOutside);
+        };
     }, []);
 
     useEffect(() => {
@@ -397,7 +438,9 @@ export default function ChatWindow({
     function handleContextMenu(e, message) {
         e.preventDefault();
         if (message.deletedForEveryone || isAIChat) return;
-        setContextMenu({ x: e.clientX, y: e.clientY, message });
+        const x = e.clientX || e.touches?.[0]?.clientX || 0;
+        const y = e.clientY || e.touches?.[0]?.clientY || 0;
+        setContextMenu({ x, y, message });
     }
 
     async function handleDeleteForMe(message) {
@@ -441,6 +484,60 @@ export default function ChatWindow({
         setReplyingTo(null);
     }
 
+    // Handle block/unblock
+    async function handleBlockUser() {
+        if (!otherUserId || !token) return;
+        try {
+            const res = await fetch(`${API_BASE}/users/block/${otherUserId}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to block user');
+            }
+            setIsBlocked(true);
+        } catch (e) {
+            setErr(e.message);
+        }
+    }
+
+    async function handleUnblockUser() {
+        if (!otherUserId || !token) return;
+        try {
+            const res = await fetch(`${API_BASE}/users/block/${otherUserId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to unblock user');
+            }
+            setIsBlocked(false);
+        } catch (e) {
+            setErr(e.message);
+        }
+    }
+
+    // Clear chat handler
+    async function handleClearChat() {
+        if (!conversationId || !token) return;
+        try {
+            const res = await fetch(`${API_BASE}/messages/conversation/${conversationId}/clear`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to clear chat');
+            }
+            setMessages([]);
+            setShowProfile(false);
+        } catch (e) {
+            setErr(e.message);
+        }
+    }
+
     // Typing emission with debounce
     const typingTimeoutRef = useRef(null);
     function handleInputChange(e) {
@@ -461,6 +558,13 @@ export default function ChatWindow({
 
     async function sendMessage() {
         if (!input.trim()) return;
+
+        // Check block status
+        if (isBlocked) {
+            setErr("You have blocked this user. Unblock to send messages.");
+            return;
+        }
+
         const text = input.trim();
         setInput("");
         setShowEmojiPicker(false);
@@ -515,7 +619,14 @@ export default function ChatWindow({
                     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
                     body: JSON.stringify({ conversationId, text, replyTo: replyingTo?.id || null }),
                 });
-                if (!res.ok) throw new Error("Failed to send");
+                if (!res.ok) {
+                    const data = await res.json();
+                    // Check for block error
+                    if (data.error?.includes('blocked')) {
+                        setHasBlockedMe(true);
+                    }
+                    throw new Error(data.error || "Failed to send");
+                }
                 const saved = await res.json();
                 const mapped = mapServerMsg(saved, myId);
                 setMessages((prev) => prev.map((m) => (m.id === tempId ? mapped : m)));
@@ -534,11 +645,19 @@ export default function ChatWindow({
         return "file";
     }
 
+    // Calculate if input should be disabled
+    const inputDisabled = isBlocked || hasBlockedMe;
+    const blockMessage = isBlocked
+        ? "You have blocked this user"
+        : hasBlockedMe
+            ? "You cannot send messages to this user"
+            : null;
+
     return (
         <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-950 transition-colors duration-300 relative">
             {/* Profile Modal */}
             {showProfile && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur-sm p-4">
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur-sm p-2 sm:p-4">
                     <div className="w-full max-w-sm border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900 flex flex-col overflow-hidden max-h-full">
                         <div className="flex-1 overflow-y-auto">
                             <ContactProfile
@@ -548,37 +667,43 @@ export default function ChatWindow({
                                     _raw: conversationRaw
                                 }}
                                 onClose={() => setShowProfile(false)}
-                                onMessage={() => setShowProfile(false)} // Already chatting
+                                onMessage={() => setShowProfile(false)}
+                                onBlockUser={handleBlockUser}
+                                onUnblockUser={handleUnblockUser}
+                                onClearChat={handleClearChat}
+                                isBlocked={isBlocked}
+                                conversationId={conversationId}
                             />
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Header - Sharp, Industrial */}
-            <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-neutral-200 dark:bg-neutral-900/95 dark:border-neutral-800">
-                <div className="px-4 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+            {/* Header - Sharp, Industrial, Mobile Optimized */}
+            <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-neutral-200 dark:bg-neutral-900/95 dark:border-neutral-800 safe-area-top">
+                <div className="px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                         {onClose && (
                             <button
                                 onClick={onClose}
-                                className="p-2 -ml-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 md:hidden transition-colors"
+                                className="p-2 -ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 md:hidden transition-colors active:bg-neutral-200 dark:active:bg-neutral-700"
                             >
                                 <ArrowLeftIcon className="h-5 w-5 text-neutral-900 dark:text-white" />
                             </button>
                         )}
                         <div
-                            className="h-10 w-10 border border-neutral-200 dark:border-neutral-700 cursor-pointer"
+                            className="h-10 w-10 border border-neutral-200 dark:border-neutral-700 cursor-pointer overflow-hidden"
                             onClick={() => setShowProfile(true)}
                         >
-                            <img
+                            <AvatarWithFallback
                                 src={partner.avatar}
                                 alt={partner.name}
+                                name={partner.name}
                                 className="h-full w-full object-cover"
                             />
                         </div>
                         <div className="min-w-0 cursor-pointer" onClick={() => setShowProfile(true)}>
-                            <p className="font-bold uppercase tracking-widest text-neutral-900 dark:text-white text-sm truncate hover:underline">
+                            <p className="font-bold uppercase tracking-widest text-neutral-900 dark:text-white text-xs sm:text-sm truncate hover:underline max-w-[150px] sm:max-w-none">
                                 {partner.name}
                             </p>
                             <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-2">
@@ -588,14 +713,35 @@ export default function ChatWindow({
                         </div>
                     </div>
 
-                    <button className="p-2 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 dark:hover:text-white dark:hover:bg-neutral-800 transition-colors">
+                    <button
+                        onClick={() => setShowProfile(true)}
+                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 dark:hover:text-white dark:hover:bg-neutral-800 transition-colors active:bg-neutral-200 dark:active:bg-neutral-700"
+                    >
                         <EllipsisVerticalIcon className="h-5 w-5" />
                     </button>
                 </div>
             </header>
 
+            {/* Block Banner */}
+            {(isBlocked || hasBlockedMe) && !isAIChat && (
+                <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-3 flex items-center justify-center gap-2">
+                    <NoSymbolIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    <span className="text-xs font-bold uppercase text-red-600 dark:text-red-400">
+                        {blockMessage}
+                    </span>
+                    {isBlocked && (
+                        <button
+                            onClick={handleUnblockUser}
+                            className="ml-2 text-xs font-bold uppercase text-red-600 dark:text-red-400 underline hover:text-red-800"
+                        >
+                            Unblock
+                        </button>
+                    )}
+                </div>
+            )}
+
             {/* Message Canvas */}
-            <main className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700" ref={listRef}>
+            <main className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700" ref={listRef}>
                 <DayDivider label={isAIChat ? "SESSION START" : "TODAY"} />
 
                 {loading && <div className="text-xs font-mono text-neutral-400 py-4 text-center uppercase animate-pulse">Establishing Link...</div>}
@@ -609,7 +755,7 @@ export default function ChatWindow({
                     )
                 }
 
-                <ul className="space-y-6">
+                <ul className="space-y-4 sm:space-y-6">
                     {!loading && !err && messages.map((m, idx) => {
                         const prev = messages[idx - 1];
                         const showAvatar = !m.outgoing && (!prev || prev.author.id !== m.author.id);
@@ -630,8 +776,8 @@ export default function ChatWindow({
                 {
                     isTyping && (
                         <div className="mt-4 flex items-end gap-2">
-                            <div className="h-8 w-8 border border-neutral-200 dark:border-neutral-700">
-                                <img src={partner.avatar} className="h-full w-full object-cover" />
+                            <div className="h-8 w-8 border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                <AvatarWithFallback src={partner.avatar} name={partner.name} className="h-full w-full object-cover" />
                             </div>
                             <TypingIndicator />
                         </div>
@@ -642,16 +788,16 @@ export default function ChatWindow({
             {/* Overlays */}
             {
                 selectedFile && (
-                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm p-4">
-                        <div className="w-full max-w-sm border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
-                            <div className="flex items-center justify-between mb-6">
+                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm p-2 sm:p-4">
+                        <div className="w-full max-w-sm border border-neutral-200 bg-white p-4 sm:p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+                            <div className="flex items-center justify-between mb-4 sm:mb-6">
                                 <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">Upload Artifact</h3>
-                                <button onClick={cancelFileSelection} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white">
+                                <button onClick={cancelFileSelection} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center">
                                     <XMarkIcon className="h-5 w-5" />
                                 </button>
                             </div>
 
-                            <div className="mb-6 flex items-center justify-center border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-800">
+                            <div className="mb-4 sm:mb-6 flex items-center justify-center border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-800">
                                 {getFileType(selectedFile) === "image" && filePreview && (
                                     <img src={filePreview} className="max-h-[200px] object-contain" />
                                 )}
@@ -670,7 +816,7 @@ export default function ChatWindow({
                             <button
                                 onClick={uploadFile}
                                 disabled={uploading}
-                                className="w-full bg-neutral-900 border border-neutral-900 py-3 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white transition-all"
+                                className="w-full bg-neutral-900 border border-neutral-900 py-3 text-xs font-bold uppercase text-white hover:bg-white hover:text-neutral-900 disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white dark:border-white transition-all min-h-[44px]"
                             >
                                 {uploading ? `TRANSMITTING ${uploadProgress}%...` : "INITIATE TRANSFER"}
                             </button>
@@ -682,8 +828,8 @@ export default function ChatWindow({
             {/* Viewer */}
             {
                 viewingMedia && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingMedia(null)}>
-                        <button className="absolute top-4 right-4 p-2 text-white hover:bg-white/10">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-2 sm:p-4" onClick={() => setViewingMedia(null)}>
+                        <button className="absolute top-4 right-4 p-2 text-white hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center">
                             <XMarkIcon className="h-8 w-8" />
                         </button>
                         {viewingMedia.type === "image" && (
@@ -696,22 +842,26 @@ export default function ChatWindow({
                 )
             }
 
-            {/* Context Menu - Square */}
+            {/* Context Menu - Mobile Optimized */}
             {
                 contextMenu && (
                     <div
                         ref={contextMenuRef}
                         className="fixed z-40 min-w-[180px] border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
-                        style={{ left: Math.min(contextMenu.x, window.innerWidth - 180), top: Math.min(contextMenu.y, window.innerHeight - 200) }}
+                        style={{
+                            left: Math.min(contextMenu.x, window.innerWidth - 200),
+                            top: Math.min(contextMenu.y, window.innerHeight - 200),
+                            maxWidth: 'calc(100vw - 20px)'
+                        }}
                     >
-                        <button onClick={() => handleReply(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                        <button onClick={() => handleReply(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-4 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 active:bg-neutral-200 dark:active:bg-neutral-700 min-h-[48px]">
                             <ArrowUturnLeftIcon className="h-4 w-4" /> REPLY
                         </button>
-                        <button onClick={() => handleDeleteForMe(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                        <button onClick={() => handleDeleteForMe(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-4 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 active:bg-neutral-200 dark:active:bg-neutral-700 min-h-[48px]">
                             <TrashIcon className="h-4 w-4" /> DELETE (LOCAL)
                         </button>
                         {contextMenu.message.outgoing && (
-                            <button onClick={() => handleDeleteForEveryone(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-3 text-xs font-bold uppercase text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
+                            <button onClick={() => handleDeleteForEveryone(contextMenu.message)} className="flex w-full items-center gap-3 px-4 py-4 text-xs font-bold uppercase text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 active:bg-red-100 min-h-[48px]">
                                 <TrashIcon className="h-4 w-4" /> DELETE (GLOBAL)
                             </button>
                         )}
@@ -722,8 +872,8 @@ export default function ChatWindow({
             {/* Delete Confirmation Modal */}
             {
                 deleteConfirm && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur-sm p-4">
-                        <div className="w-full max-w-sm border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur-sm p-2 sm:p-4">
+                        <div className="w-full max-w-sm border border-neutral-200 bg-white p-4 sm:p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="flex h-10 w-10 items-center justify-center bg-red-100 dark:bg-red-900/30">
                                     <TrashIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
@@ -742,13 +892,13 @@ export default function ChatWindow({
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setDeleteConfirm(null)}
-                                    className="flex-1 border border-neutral-300 py-2 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+                                    className="flex-1 border border-neutral-300 py-3 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors min-h-[44px]"
                                 >
                                     CANCEL
                                 </button>
                                 <button
                                     onClick={confirmDelete}
-                                    className="flex-1 bg-red-600 py-2 text-xs font-bold uppercase text-white hover:bg-red-700 transition-colors"
+                                    className="flex-1 bg-red-600 py-3 text-xs font-bold uppercase text-white hover:bg-red-700 transition-colors min-h-[44px]"
                                 >
                                     DELETE
                                 </button>
@@ -758,21 +908,33 @@ export default function ChatWindow({
                 )
             }
 
-            {/* Footer / Input - Industrial Form */}
-            <footer className="sticky bottom-0 z-20 border-t border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+            {/* Footer / Input - Mobile Optimized */}
+            <footer className="sticky bottom-0 z-20 border-t border-neutral-200 bg-white p-2 sm:p-4 dark:border-neutral-800 dark:bg-neutral-950 safe-area-bottom">
                 {replyingTo && (
-                    <div className="mb-3 flex items-center justify-between border-l-4 border-neutral-900 bg-neutral-50 p-3 dark:border-white dark:bg-neutral-900">
+                    <div className="mb-2 sm:mb-3 flex items-center justify-between border-l-4 border-neutral-900 bg-neutral-50 p-2 sm:p-3 dark:border-white dark:bg-neutral-900">
                         <div className="min-w-0">
                             <p className="text-[10px] font-bold uppercase text-neutral-500">Replying To {replyingTo.outgoing ? 'Self' : replyingTo.author?.name}</p>
                             <p className="text-xs font-mono truncate text-neutral-900 dark:text-white">{getReplyPreview(replyingTo)}</p>
                         </div>
-                        <button onClick={cancelReply} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white"><XMarkIcon className="h-4 w-4" /></button>
+                        <button onClick={cancelReply} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"><XMarkIcon className="h-4 w-4" /></button>
                     </div>
                 )}
 
-                <div className="flex items-end gap-2">
+                {/* Blocked input message */}
+                {inputDisabled && (
+                    <div className="text-center py-2 mb-2 bg-neutral-100 dark:bg-neutral-800 text-xs font-mono text-neutral-500 flex items-center justify-center gap-2">
+                        <LockClosedIcon className="h-4 w-4" />
+                        <span>{blockMessage}</span>
+                    </div>
+                )}
+
+                <div className="flex items-end gap-1 sm:gap-2">
                     <div className="relative flex items-end">
-                        <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="flex h-12 w-12 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors">
+                        <button
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            disabled={inputDisabled}
+                            className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors disabled:opacity-50 active:bg-neutral-100 dark:active:bg-neutral-800"
+                        >
                             <FaceSmileIcon className="h-5 w-5" />
                         </button>
                         {showEmojiPicker && (
@@ -783,7 +945,11 @@ export default function ChatWindow({
                     </div>
 
                     {!isAIChat && (
-                        <button onClick={() => fileInputRef.current?.click()} className="flex h-12 w-12 shrink-0 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors">
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={inputDisabled}
+                            className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors disabled:opacity-50 active:bg-neutral-100 dark:active:bg-neutral-800"
+                        >
                             <PaperClipIcon className="h-5 w-5" />
                             <input ref={fileInputRef} type="file" accept={ALLOWED_FILE_TYPES} onChange={handleFileSelect} className="hidden" />
                         </button>
@@ -794,8 +960,9 @@ export default function ChatWindow({
                             value={input}
                             onChange={handleInputChange}
                             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                            placeholder="ENTER MESSAGE..."
-                            className="w-full bg-transparent px-4 py-3 text-sm font-mono text-neutral-900 placeholder-neutral-400 outline-none resize-none min-h-[48px] max-h-[150px] dark:text-white"
+                            placeholder={inputDisabled ? "MESSAGING DISABLED" : "ENTER MESSAGE..."}
+                            disabled={inputDisabled}
+                            className="w-full bg-transparent px-3 sm:px-4 py-3 text-sm font-mono text-neutral-900 placeholder-neutral-400 outline-none resize-none min-h-[44px] max-h-[120px] sm:max-h-[150px] dark:text-white disabled:opacity-50"
                             rows={1}
                             style={{ height: 'auto' }}
                             onInput={(e) => {
@@ -807,8 +974,8 @@ export default function ChatWindow({
 
                     <button
                         onClick={sendMessage}
-                        disabled={!input.trim()}
-                        className="flex h-12 w-12 shrink-0 items-center justify-center bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 transition-colors"
+                        disabled={!input.trim() || inputDisabled}
+                        className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 transition-colors active:bg-neutral-800 dark:active:bg-neutral-300"
                     >
                         <PaperAirplaneIcon className="h-5 w-5 -rotate-45" />
                     </button>
@@ -822,13 +989,36 @@ export default function ChatWindow({
 // Sub-Components
 // ------------------------------------
 
+// Avatar with fallback to first letter
+function AvatarWithFallback({ src, alt, name, className }) {
+    const [error, setError] = useState(false);
+    const initial = getInitial(name);
+
+    if (error || !src) {
+        return (
+            <div className={`${className} flex items-center justify-center bg-neutral-800 text-white font-bold text-sm uppercase`}>
+                {initial}
+            </div>
+        );
+    }
+
+    return (
+        <img
+            src={src}
+            alt={alt || name}
+            className={className}
+            onError={() => setError(true)}
+        />
+    );
+}
+
 function EmojiPicker({ onSelect }) {
     const emojis = ["😀", "😂", "🥰", "😎", "🤔", "😭", "👍", "👎", "👋", "🙏", "🔥", "❤️", "✅", "⚠️", "🚫", "💻", "🚀", "🤖"];
     return (
         <div className="w-64 border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
             <div className="grid grid-cols-6 gap-1">
                 {emojis.map((e) => (
-                    <button key={e} onClick={() => onSelect(e)} className="p-2 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800">{e}</button>
+                    <button key={e} onClick={() => onSelect(e)} className="p-2 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 min-h-[44px] active:bg-neutral-200 dark:active:bg-neutral-700">{e}</button>
                 ))}
             </div>
         </div>
@@ -845,6 +1035,38 @@ function DayDivider({ label }) {
 }
 
 function MessageBubble({ msg, showAvatar, onMediaClick, onContextMenu, onReply, getReplyPreview }) {
+    // Long press handling for mobile
+    const longPressTimer = useRef(null);
+    const [isLongPressing, setIsLongPressing] = useState(false);
+
+    const handleTouchStart = useCallback((e) => {
+        if (msg.deletedForEveryone) return;
+        setIsLongPressing(false);
+        longPressTimer.current = setTimeout(() => {
+            setIsLongPressing(true);
+            // Vibrate if available
+            if (navigator.vibrate) navigator.vibrate(50);
+            onContextMenu(e);
+        }, 500);
+    }, [msg.deletedForEveryone, onContextMenu]);
+
+    const handleTouchEnd = useCallback(() => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+        setIsLongPressing(false);
+    }, []);
+
+    const handleTouchMove = useCallback(() => {
+        // Cancel long press if user moves finger
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+        setIsLongPressing(false);
+    }, []);
+
     // Sharp edges, high contrast
     const outgoingStyle = "bg-neutral-900 text-white ml-auto border border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white";
     const incomingStyle = "bg-white text-neutral-900 mr-auto border border-neutral-200 dark:bg-neutral-900 dark:text-white dark:border-neutral-700";
@@ -860,25 +1082,38 @@ function MessageBubble({ msg, showAvatar, onMediaClick, onContextMenu, onReply, 
     }
 
     return (
-        <li className={`flex items-start gap-4 mb-2 group ${msg.outgoing ? "justify-end" : ""}`} onContextMenu={onContextMenu}>
+        <li
+            className={`flex items-start gap-2 sm:gap-4 mb-2 group ${msg.outgoing ? "justify-end" : ""} ${isLongPressing ? 'opacity-70' : ''}`}
+            onContextMenu={onContextMenu}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+        >
             {!msg.outgoing && (
-                <div className="w-10 shrink-0">
-                    {showAvatar && <img src={msg.author.avatar} alt="" className="h-10 w-10 border border-neutral-200 dark:border-neutral-700 object-cover" />}
+                <div className="w-8 sm:w-10 shrink-0">
+                    {showAvatar && (
+                        <AvatarWithFallback
+                            src={msg.author.avatar}
+                            name={msg.author.name}
+                            className="h-8 w-8 sm:h-10 sm:w-10 border border-neutral-200 dark:border-neutral-700 object-cover"
+                        />
+                    )}
                 </div>
             )}
 
             <div className="relative max-w-[85%] sm:max-w-md">
-                <button onClick={onContextMenu} className={`absolute -top-3 p-1 opacity-0 group-hover:opacity-100 transition-opacity ${msg.outgoing ? 'right-0' : 'left-0'} text-neutral-400`}>
+                <button onClick={onContextMenu} className={`absolute -top-3 p-1 opacity-0 group-hover:opacity-100 transition-opacity ${msg.outgoing ? 'right-0' : 'left-0'} text-neutral-400 hidden sm:block`}>
                     <EllipsisVerticalIcon className="h-4 w-4" />
                 </button>
 
-                <div className={`p-4 shadow-sm ${msg.outgoing ? outgoingStyle : incomingStyle}`}>
+                <div className={`p-3 sm:p-4 shadow-sm ${msg.outgoing ? outgoingStyle : incomingStyle}`}>
                     {!msg.outgoing && showAvatar && (
                         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-neutral-500">{msg.author.name}</p>
                     )}
 
                     {msg.replyTo && (
-                        <div className={`mb-3 border-l-2 p-2 text-xs ${msg.outgoing ? 'border-neutral-500 bg-neutral-800 text-neutral-300 dark:bg-neutral-100 dark:text-neutral-600' : 'border-neutral-300 bg-neutral-50 text-neutral-500 dark:bg-neutral-800'}`}>
+                        <div className={`mb-2 sm:mb-3 border-l-2 p-2 text-xs ${msg.outgoing ? 'border-neutral-500 bg-neutral-800 text-neutral-300 dark:bg-neutral-100 dark:text-neutral-600' : 'border-neutral-300 bg-neutral-50 text-neutral-500 dark:bg-neutral-800'}`}>
                             <span className="font-bold uppercase block mb-1">{msg.replyTo.senderName}</span>
                             <span className="font-mono truncate block">{getReplyPreview(msg.replyTo)}</span>
                         </div>

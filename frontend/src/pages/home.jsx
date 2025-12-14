@@ -446,6 +446,29 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
   );
 }
 
+// Avatar with fallback to first letter
+function AvatarWithFallback({ src, alt, name, className }) {
+  const [error, setError] = React.useState(false);
+  const initial = getInitial(name);
+
+  if (error || !src) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-neutral-800 text-white font-bold text-sm uppercase`}>
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt || name}
+      className={className}
+      onError={() => setError(true)}
+    />
+  );
+}
+
 // Chat List Item
 function ChatListItem({ chat, onClick, isActive }) {
   const isAI = chat.type === "ai";
@@ -453,7 +476,7 @@ function ChatListItem({ chat, onClick, isActive }) {
   return (
     <li
       onClick={onClick}
-      className={`group relative flex cursor-pointer items-start gap-4 p-4 transition-all hover:bg-neutral-50 dark:hover:bg-neutral-900 
+      className={`group relative flex cursor-pointer items-start gap-3 sm:gap-4 p-3 sm:p-4 transition-all hover:bg-neutral-50 dark:hover:bg-neutral-900 active:bg-neutral-100 dark:active:bg-neutral-800 min-h-[72px]
       ${isActive ? "bg-neutral-100 dark:bg-neutral-900" : "bg-white dark:bg-neutral-950"}`}
     >
       {/* Active Indicator Strip */}
@@ -463,10 +486,11 @@ function ChatListItem({ chat, onClick, isActive }) {
 
       {/* Avatar */}
       <div className="relative shrink-0">
-        <div className={`h-12 w-12 border ${isAI ? 'border-indigo-500/50' : 'border-neutral-200 dark:border-neutral-700'}`}>
-          <img
+        <div className={`h-11 w-11 sm:h-12 sm:w-12 border overflow-hidden ${isAI ? 'border-indigo-500/50' : 'border-neutral-200 dark:border-neutral-700'}`}>
+          <AvatarWithFallback
             src={chat.avatar}
             alt={toStr(chat.name)}
+            name={chat.name}
             className="h-full w-full object-cover"
           />
         </div>
@@ -477,14 +501,14 @@ function ChatListItem({ chat, onClick, isActive }) {
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`text-sm font-bold uppercase tracking-tight ${isActive ? "text-neutral-900 dark:text-white" : "text-neutral-700 dark:text-neutral-300"}`}>
+            <span className={`text-xs sm:text-sm font-bold uppercase tracking-tight truncate max-w-[140px] sm:max-w-none ${isActive ? "text-neutral-900 dark:text-white" : "text-neutral-700 dark:text-neutral-300"}`}>
               {toStr(chat.name)}
             </span>
-            {isAI && <CpuChipIcon className="h-4 w-4 text-indigo-500" />}
-            {chat.type === "group" && <UserGroupIcon className="h-3 w-3 text-neutral-400" />}
-            {chat.muted && <BellSlashIcon className="h-3 w-3 text-neutral-400" />}
+            {isAI && <CpuChipIcon className="h-4 w-4 text-indigo-500 shrink-0" />}
+            {chat.type === "group" && <UserGroupIcon className="h-3 w-3 text-neutral-400 shrink-0" />}
+            {chat.muted && <BellSlashIcon className="h-3 w-3 text-neutral-400 shrink-0" />}
           </div>
-          <span className="text-[10px] font-mono text-neutral-400">{chat.time}</span>
+          <span className="text-[10px] font-mono text-neutral-400 shrink-0">{chat.time}</span>
         </div>
 
         <div className="flex items-center justify-between gap-2">
@@ -492,7 +516,7 @@ function ChatListItem({ chat, onClick, isActive }) {
             {toStr(chat.lastMessage)}
           </p>
           {chat.unread > 0 && (
-            <span className="flex h-5 min-w-[20px] items-center justify-center bg-neutral-900 px-1 text-[10px] font-bold text-white dark:bg-white dark:text-neutral-900">
+            <span className="flex h-5 min-w-[20px] items-center justify-center bg-neutral-900 px-1 text-[10px] font-bold text-white dark:bg-white dark:text-neutral-900 shrink-0">
               {chat.unread}
             </span>
           )}

@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
 
     showLastSeen: { type: Boolean, default: true },
     showPhoto: { type: Boolean, default: true },
+    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );

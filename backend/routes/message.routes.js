@@ -6,6 +6,7 @@ const fs = require("fs");
 const auth = require("../middleware/auth");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
+const User = require("../models/User");
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, "..", "uploads", "chat_files");
@@ -56,6 +57,39 @@ const upload = multer({
   fileFilter,
   limits: { fileSize: 25 * 1024 * 1024 }, // Max limit (video size)
 });
+
+// Helper to check if a user is blocked
+async function isUserBlocked(blockerId, blockedId) {
+  const blocker = await User.findById(blockerId).select('blockedUsers');
+  if (!blocker) return false;
+  return blocker.blockedUsers.map(String).includes(String(blockedId));
+}
+
+// DELETE /api/messages/conversation/:conversationId/clear - Clear chat for current user
+router.delete("/conversation/:conversationId/clear", auth, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const convo = await Conversation.findById(conversationId);
+    if (!convo) return res.status(404).json({ error: "Conversation not found" });
+    if (!convo.participants.map(String).includes(String(userId))) {
+      return res.status(403).json({ error: "Not a participant of this conversation" });
+    }
+
+    // Add userId to deletedFor for all messages in this conversation
+    await Message.updateMany(
+      { conversation: conversationId, deletedFor: { $ne: userId } },
+      { $push: { deletedFor: userId } }
+    );
+
+    return res.json({ success: true, message: "Chat cleared successfully" });
+  } catch (err) {
+    console.error("❌ Error clearing chat:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 // POST /api/messages
 // body: { conversationId, text, replyTo? }
 router.post("/", auth, async (req, res) => {
@@ -74,6 +108,21 @@ router.post("/", auth, async (req, res) => {
       return res
         .status(403)
         .json({ error: "Not a participant of this conversation" });
+    }
+
+    // Check if any participant has blocked current user or vice versa
+    const otherParticipants = convo.participants.filter(p => String(p) !== String(userId));
+    for (const otherId of otherParticipants) {
+      // Check if current user is blocked by the other
+      const blockedByOther = await isUserBlocked(otherId, userId);
+      if (blockedByOther) {
+        return res.status(403).json({ error: "You cannot send messages to this user" });
+      }
+      // Check if current user has blocked the other
+      const blockedByMe = await isUserBlocked(userId, otherId);
+      if (blockedByMe) {
+        return res.status(403).json({ error: "You have blocked this user. Unblock to send messages." });
+      }
     }
 
     // Validate replyTo message if provided
