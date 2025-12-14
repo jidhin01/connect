@@ -235,16 +235,38 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
       chats.filter((c) => c.id !== AI_CHAT_ID).forEach((c) => socket.emit("joinConversation", c.id));
     });
     socket.on("newMessage", (m) => {
+      const messageConversationId = m.conversation._id;
+      const isFromMe = String(m.sender?._id) === String(myId);
+
       setChats((prev) => {
-        const idx = prev.findIndex((c) => c.id === m.conversation._id);
+        const idx = prev.findIndex((c) => c.id === messageConversationId);
         if (idx === -1) return prev;
         const updated = [...prev];
         const conv = { ...updated[idx] };
-        conv.lastMessage = `${m.sender?.username || m.sender?.email || "User"}: ${m.text}`;
+
+        // Update last message preview
+        const messagePreview = m.type === 'text'
+          ? m.text
+          : m.type === 'image'
+            ? '[Photo]'
+            : m.type === 'video'
+              ? '[Video]'
+              : m.type === 'pdf'
+                ? '[Document]'
+                : '[File]';
+
+        conv.lastMessage = `${m.sender?.username || m.sender?.email || "User"}: ${messagePreview}`;
         conv.time = new Date(m.createdAt).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         });
+
+        // Increment unread count if message is not from me and not in active chat
+        const activeConvoId = localStorage.getItem("activeConversationId");
+        if (!isFromMe && messageConversationId !== activeConvoId) {
+          conv.unread = (conv.unread || 0) + 1;
+        }
+
         updated.splice(idx, 1);
         updated.unshift(conv);
         return updated;
@@ -254,7 +276,7 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
       socket.off("newMessage");
       socket.off("Connect");
     };
-  }, [chats]);
+  }, [chats, myId]);
 
   const filtered = useMemo(() => {
     const q = lower(query.trim());
@@ -284,11 +306,17 @@ export default function Home({ isSidebarCollapsed, setSidebarCollapsed }) {
     localStorage.setItem("activeConversationName", chat.name);
     localStorage.setItem("activeConversationAvatar", chat.avatar);
     localStorage.setItem("isAIChat", chat.id === AI_CHAT_ID ? "true" : "false");
+
+    // Clear unread count for the selected chat
+    setChats((prev) =>
+      prev.map((c) => c.id === chat.id ? { ...c, unread: 0 } : c)
+    );
   };
 
   const handleCloseChat = () => {
     setSelectedChat(null);
     if (setSidebarCollapsed) setSidebarCollapsed(false);
+    localStorage.removeItem("activeConversationId");
   };
 
   return (

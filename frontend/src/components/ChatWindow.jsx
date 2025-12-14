@@ -246,6 +246,8 @@ export default function ChatWindow({
                 }
                 return [...prev, mapped];
             });
+            // Clear typing indicator when new message arrives
+            setIsTyping(false);
         };
 
         const handleMessageDeleted = ({ messageId, deletedForEveryone }) => {
@@ -260,13 +262,30 @@ export default function ChatWindow({
             }
         };
 
+        const handleUserTyping = ({ conversationId: convId, userId }) => {
+            if (convId === conversationId && userId !== myId) {
+                setIsTyping(true);
+            }
+        };
+
+        const handleUserStoppedTyping = ({ conversationId: convId, userId }) => {
+            if (convId === conversationId && userId !== myId) {
+                setIsTyping(false);
+            }
+        };
+
         socket.on("newMessage", handleNewMessage);
         socket.on("messageDeleted", handleMessageDeleted);
+        socket.on("userTyping", handleUserTyping);
+        socket.on("userStoppedTyping", handleUserStoppedTyping);
         return () => {
             socket.off("newMessage", handleNewMessage);
             socket.off("messageDeleted", handleMessageDeleted);
+            socket.off("userTyping", handleUserTyping);
+            socket.off("userStoppedTyping", handleUserStoppedTyping);
         };
     }, [conversationId, myId, isAIChat]);
+
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -418,11 +437,39 @@ export default function ChatWindow({
         return replyTo.text?.substring(0, 50) + (replyTo.text?.length > 50 ? '...' : '') || '';
     }
 
+    function cancelReply() {
+        setReplyingTo(null);
+    }
+
+    // Typing emission with debounce
+    const typingTimeoutRef = useRef(null);
+    function handleInputChange(e) {
+        const value = e.target.value;
+        setInput(value);
+
+        if (!isAIChat && conversationId && myId) {
+            // Emit typing event
+            socket.emit("typing", { conversationId, userId: myId, username: myName });
+
+            // Clear previous timeout and set new one for stopTyping
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+                socket.emit("stopTyping", { conversationId, userId: myId });
+            }, 2000);
+        }
+    }
+
     async function sendMessage() {
-        if (!input.trim() || isTyping) return;
+        if (!input.trim()) return;
         const text = input.trim();
         setInput("");
         setShowEmojiPicker(false);
+
+        // Stop typing indicator when message is sent
+        if (!isAIChat && conversationId && myId) {
+            socket.emit("stopTyping", { conversationId, userId: myId });
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        }
 
         if (isAIChat) {
             const userMsg = mapAiMsg(text, true, myId, myName);
@@ -672,6 +719,45 @@ export default function ChatWindow({
                 )
             }
 
+            {/* Delete Confirmation Modal */}
+            {
+                deleteConfirm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur-sm p-4">
+                        <div className="w-full max-w-sm border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="flex h-10 w-10 items-center justify-center bg-red-100 dark:bg-red-900/30">
+                                    <TrashIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white">
+                                        {deleteConfirm.type === 'everyone' ? 'DELETE FOR EVERYONE' : 'DELETE FOR ME'}
+                                    </h3>
+                                    <p className="text-[10px] font-mono text-neutral-500">
+                                        {deleteConfirm.type === 'everyone'
+                                            ? 'This action cannot be undone for all participants'
+                                            : 'Message will be removed from your view only'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    className="flex-1 border border-neutral-300 py-2 text-xs font-bold uppercase text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+                                >
+                                    CANCEL
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="flex-1 bg-red-600 py-2 text-xs font-bold uppercase text-white hover:bg-red-700 transition-colors"
+                                >
+                                    DELETE
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
             {/* Footer / Input - Industrial Form */}
             <footer className="sticky bottom-0 z-20 border-t border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
                 {replyingTo && (
@@ -684,8 +770,8 @@ export default function ChatWindow({
                     </div>
                 )}
 
-                <div className="flex gap-2">
-                    <div className="relative">
+                <div className="flex items-end gap-2">
+                    <div className="relative flex items-end">
                         <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="flex h-12 w-12 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors">
                             <FaceSmileIcon className="h-5 w-5" />
                         </button>
@@ -697,27 +783,32 @@ export default function ChatWindow({
                     </div>
 
                     {!isAIChat && (
-                        <button onClick={() => fileInputRef.current?.click()} className="flex h-12 w-12 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors">
+                        <button onClick={() => fileInputRef.current?.click()} className="flex h-12 w-12 shrink-0 items-center justify-center border border-neutral-300 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-white dark:hover:text-white transition-colors">
                             <PaperClipIcon className="h-5 w-5" />
                             <input ref={fileInputRef} type="file" accept={ALLOWED_FILE_TYPES} onChange={handleFileSelect} className="hidden" />
                         </button>
                     )}
 
-                    <div className="flex-1 border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900 focus-within:border-neutral-900 dark:focus-within:border-white transition-colors">
+                    <div className="flex-1 flex items-end border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900 focus-within:border-neutral-900 dark:focus-within:border-white transition-colors">
                         <textarea
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={handleInputChange}
                             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                             placeholder="ENTER MESSAGE..."
-                            className="w-full bg-transparent px-4 py-3 text-sm font-mono text-neutral-900 placeholder-neutral-400 outline-none resize-none min-h-[48px] dark:text-white"
+                            className="w-full bg-transparent px-4 py-3 text-sm font-mono text-neutral-900 placeholder-neutral-400 outline-none resize-none min-h-[48px] max-h-[150px] dark:text-white"
                             rows={1}
+                            style={{ height: 'auto' }}
+                            onInput={(e) => {
+                                e.target.style.height = 'auto';
+                                e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+                            }}
                         />
                     </div>
 
                     <button
                         onClick={sendMessage}
                         disabled={!input.trim()}
-                        className="flex h-12 w-12 items-center justify-center bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                        className="flex h-12 w-12 shrink-0 items-center justify-center bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-50 disabled:hover:bg-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 transition-colors"
                     >
                         <PaperAirplaneIcon className="h-5 w-5 -rotate-45" />
                     </button>

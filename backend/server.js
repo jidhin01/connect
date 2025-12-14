@@ -68,6 +68,15 @@ io.on("connection", (socket) => {
     console.log(`👥 User joined conversation: ${conversationId}`);
   });
 
+  // Typing indicator events
+  socket.on("typing", ({ conversationId, userId, username }) => {
+    socket.to(conversationId).emit("userTyping", { conversationId, userId, username });
+  });
+
+  socket.on("stopTyping", ({ conversationId, userId }) => {
+    socket.to(conversationId).emit("userStoppedTyping", { conversationId, userId });
+  });
+
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
   });
